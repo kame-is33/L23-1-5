@@ -163,10 +163,10 @@ def display_search_llm_response(llm_response):
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
-    # 開発者モードがオンの場合、デバッグ情報を表示
-    if st.session_state.developer_mode:
-        with st.expander(ct.DEBUG_EXPANDER_TITLE):
-            st.markdown(ct.DEBUG_LLM_RESPONSE_TITLE)
+    # 開発者モードがオンの場合、DEBUGログを表示
+    if st.session_state.get("show_debug_logs", False):
+        with st.expander("DEBUG情報"):
+            st.markdown("### LLMレスポンス（生データ）")
             st.json(llm_response)
     
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
@@ -280,9 +280,9 @@ def display_contact_llm_response(llm_response):
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードがオンの場合、デバッグ情報を表示
-    if st.session_state.developer_mode:
-        with st.expander(ct.DEBUG_EXPANDER_TITLE):
-            st.markdown(ct.DEBUG_LLM_RESPONSE_TITLE)
+    if st.session_state.get("show_debug_logs", False):
+        with st.expander("DEBUG情報"):
+            st.markdown("### LLMレスポンス（生データ）")
             st.json(llm_response)
     
     # LLMからの回答を表示
