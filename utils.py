@@ -10,6 +10,19 @@ from langchain.chains import create_history_aware_retriever, create_retrieval_ch
 from langchain.chains.combine_documents import create_stuff_documents_chain
 import constants as ct
 
+# 新しい関数を追加
+def analyze_csv_structure(csv_path):
+    """CSVファイルの構造を分析し、重要なカラム名を特定する関数"""
+    try:
+        import pandas as pd
+        if os.path.exists(csv_path):
+            # CSVファイル読み込み・分析処理（前回提案したコード）
+            ...
+
+    except Exception as e:
+        logging.getLogger(ct.LOGGER_NAME).error(f"CSV構造分析エラー: {e}")
+        return None, None
+
 def get_llm_response(chat_message):
     """
     LLMからの回答取得
@@ -98,48 +111,9 @@ def get_llm_response(chat_message):
     if is_employee_query and llm_response["answer"] == ct.INQUIRY_NO_MATCH_ANSWER:
         try:
             csv_path = "./data/社員について/社員名簿.csv"
-            if os.path.exists(csv_path):
-                # 社員データの読み込み
-                employee_df = pd.read_csv(csv_path)
-                
-                # 部署列の特定
-                dept_column = None
-                for col in employee_df.columns:
-                    if "部署" in col or "所属" in col:
-                        dept_column = col
-                        break
-                
-                # 人事部のフィルタリング（部署列が見つかった場合）
-                if dept_column and "人事" in chat_message:
-                    filtered_df = employee_df[employee_df[dept_column].str.contains("人事", na=False)]
-                else:
-                    filtered_df = employee_df
-                
-                if not filtered_df.empty:
-                    # 社員情報をマークダウンテーブルに変換
-                    employee_table = filtered_df.to_markdown(index=False)
-                    
-                    # 直接LLMに社員情報と質問を送信
-                    direct_prompt = f"""
-                    以下の社員情報を使って質問に答えてください。
-                    
-                    {employee_table}
-                    
-                    質問: {chat_message}
-                    """
-                    
-                    direct_response = llm.invoke(direct_prompt)
-                    
-                    # レスポンスの上書き
-                    llm_response["answer"] = direct_response.content
-                    
-                    # context がない場合は作成
-                    if "context" not in llm_response or not llm_response["context"]:
-                        from langchain_core.documents import Document
-                        llm_response["context"] = [Document(
-                            page_content="社員名簿の情報",
-                            metadata={"source": "./data/社員について/社員名簿.csv"}
-                        )]
+            # CSVの構造を分析（前回提案したフィルタリングコード）
+            ...
+
         except Exception as e:
             logging.getLogger(ct.LOGGER_NAME).warning(f"社員情報による直接回答の生成に失敗しました: {e}")
 
