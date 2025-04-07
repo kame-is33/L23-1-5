@@ -77,7 +77,8 @@ def display_sidebar():
     # 開発者モードのトグル
     st.session_state.developer_mode = st.sidebar.toggle(
         ct.SIDEBAR_DEVELOPER_MODE,
-        value=st.session_state.developer_mode
+        value=st.session_state.developer_mode,
+        key="developer_mode"
     )
 
 
