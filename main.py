@@ -62,6 +62,9 @@ cn.display_app_title()
 # モード表示
 cn.display_select_mode()
 
+# サイドバー表示
+cn.display_sidebar()
+
 # AIメッセージの初期表示
 cn.display_initial_ai_message()
 
@@ -90,6 +93,9 @@ chat_message = st.chat_input(ct.CHAT_INPUT_HELPER_TEXT)
 ############################################################
 # 7. チャット送信時の処理
 ############################################################
+# サイドバーを最初に表示
+cn.display_sidebar()
+
 if chat_message:
     # ==========================================
     # 7-0. ファイル更新チェック　新設
@@ -126,17 +132,6 @@ if chat_message:
             st.error(utils.build_error_message(ct.GET_LLM_RESPONSE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
             # 後続の処理を中断
             st.stop()
-    # サイドバー表示　（新設）
-    cn.display_sidebar()
-    # 開発者モードオンの場合、デバッグ情報を表示
-    if st.session_state.developer_mode:
-        # デバッグ情報の表示
-        with st.expander(ct.DEBUG_EXPANDER_TITLE, expanded=True):
-            st.write(ct.DEBUG_LLM_RESPONSE_TITLE)
-            st.json(llm_response)
-    else:
-        # デバッグ情報の非表示
-        res_box.empty()
 
     # ==========================================
     # 7-3. LLMからの回答表示
