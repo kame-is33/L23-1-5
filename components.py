@@ -136,7 +136,7 @@ def display_conversation_log():
                                 # 参照元のありかに応じて、適したアイコンを取得
                                 icon = utils.get_source_icon(sub_choice['source'])
                                 # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
-                                if "page_number" in sub_choice:
+                                if "page" in sub_choice:
                                     st.info(f"{sub_choice['source']}", icon=icon)
                                 else:
                                     st.info(f"{sub_choice['source']}", icon=icon)
@@ -223,8 +223,9 @@ def display_search_llm_response(llm_response):
             # ページ番号が取得できない場合のための分岐処理
             if "page_number" in sub_choice:
                 # 「サブドキュメントのファイルパス」と「ページ番号」を表示
-                st.info(f"{sub_choice['source']}（Page #{sub_choice['page_number']}）", icon=icon)
-                else:
+                file_info = document.metadata["source"]
+                st.info(f"{file_info}（Page #{document.metadata['page']}）", icon=icon)
+            else:
                 # 「サブドキュメントのファイルパス」を表示
                 st.info(f"{sub_choice['source']}", icon=icon)
             
@@ -348,8 +349,8 @@ def display_contact_llm_response(llm_response):
     content["mode"] = ct.ANSWER_MODE_2
     content["answer"] = llm_response["answer"]
     # 参照元のドキュメントが取得できた場合のみ　ページ番号を表示　変更
-    if "page_number" in sub_choice:
-        st.info(f"{sub_choice['source']}（Page #{sub_choice['page_number']}）", icon=icon)
+    if "page" in document.metadata:
+        st.info(f"{document.metadata['source']}（Page #{document.metadata['page']}）", icon=icon)
     else:
-        st.info(f"{sub_choice['source']}", icon=icon)
+        st.info(f"{document.metadata['source']}", icon=icon)
     return content
