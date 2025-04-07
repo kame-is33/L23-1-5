@@ -122,17 +122,18 @@ def initialize_retriever():
     embeddings = OpenAIEmbeddings()
     
     # チャンク分割用のオブジェクトを作成　変更
-    text_splitter = CharacterTextSplitter
+    text_splitter = CharacterTextSplitter(
     chunk_size=ct.CHUNK_SIZE,
     chunk_overlap=ct.CHUNK_OVERLAP,
     separator="\n"
+    )
     
     # チャンク分割を実施
     splitted_docs = text_splitter.split_documents(docs_all)
     
     # ベクターストアの作成
     db = Chroma.from_documents(splitted_docs, embedding=embeddings)
-    # ベクターストアを検索するRetrieverの作成　変更
+    # ベクターストアを検索するRetrieverの作成
     st.session_state.retriever = db.as_retriever(search_kwargs={"k": ct.RETRIEVER_DOCUMENT_COUNT})
 
 
