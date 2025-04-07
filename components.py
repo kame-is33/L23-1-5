@@ -44,7 +44,8 @@ def display_sidebar():
     st.sidebar.markdown(ct.SIDEBAR_SEARCH_DESCRIPTION)
     # 「st.code()」を使うとコードブロックの装飾で表示される
     # 「wrap_lines=True」で折り返し設定、「language=None」で非装飾とする
-    st.sidebar.code(f"{ct.EXAMPLE_TITLE}\n{ct.SIDEBAR_SEARCH_EXAMPLE}", wrap_lines=True, language=None)
+    st.sidebar.markdown(ct.EXAMPLE_TITLE)
+    st.sidebar.code(ct.SIDEBAR_SEARCH_EXAMPLE, wrap_lines=True, language=None)
 
     # 「社内問い合わせ」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
