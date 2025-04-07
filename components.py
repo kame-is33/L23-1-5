@@ -59,9 +59,6 @@ def display_sidebar():
 
     # 区切り線
     st.sidebar.divider()
-        
-    # 一番下に開発者モードのトグル
-    st.sidebar.divider()
     
     # セッション状態に開発者モードのフラグが存在しない場合は初期化
     if "developer_mode" not in st.session_state:
