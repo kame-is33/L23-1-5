@@ -288,8 +288,9 @@ def display_contact_llm_response(llm_response):
     content["mode"] = ct.ANSWER_MODE_2
     content["answer"] = llm_response["answer"]
     
-    # 参照元の文書情報がある場合または社員情報関連の質問の場合は追加
-    if llm_response["context"] and (llm_response["answer"] != ct.INQUIRY_NO_MATCH_ANSWER or any(doc.metadata["source"].endswith("社員名簿.csv") for doc in llm_response["context"])):
+    # 参照元の文書情報がある場合は追加
+    # 回答が「見つかりませんでした」でも、contextが存在すれば表示
+    if "context" in llm_response and llm_response["context"]:
         file_info_list = []
         duplicate_check_list = []
         
