@@ -23,6 +23,35 @@ def analyze_csv_structure(csv_path):
         logging.getLogger(ct.LOGGER_NAME).error(f"CSV構造分析エラー: {e}")
         return None, None
 
+def load_csv_to_vectorstore(csv_path, vectorstore):
+    """CSVファイルをベクターストアに登録する関数"""
+    try:
+        df = pd.read_csv(csv_path)
+        documents = []
+        
+        for index, row in df.iterrows():
+            # 各行を構造化テキストに変換
+            content = "\n".join([f"{col}: {row[col]}" for col in df.columns])
+            
+            # ドキュメントとして登録
+            from langchain_core.documents import Document
+            doc = Document(
+                page_content=content,
+                metadata={
+                    "source": csv_path,
+                    "row": index,
+                    "type": "社員情報"
+                }
+            )
+            documents.append(doc)
+        
+        # ベクターストアに追加
+        vectorstore.add_documents(documents)
+        logging.getLogger(ct.LOGGER_NAME).info(f"CSVから{len(documents)}件のドキュメントを登録しました: {csv_path}")
+        
+    except Exception as e:
+        logging.getLogger(ct.LOGGER_NAME).error(f"CSVのベクターストア登録エラー: {e}")
+
 def get_llm_response(chat_message):
     """
     LLMからの回答取得
