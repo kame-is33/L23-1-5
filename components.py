@@ -279,15 +279,6 @@ def display_contact_llm_response(llm_response):
         with st.expander("DEBUG情報", expanded=True):
             st.markdown("### LLMレスポンス（生データ）")
             st.json(llm_response)
-            
-            # ログファイルも表示
-            st.markdown("### ログファイル内容")
-            try:
-                with open("logs/application.log", "r", encoding="utf-8") as f:
-                    log_content = f.read()
-                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-            except FileNotFoundError:
-                st.warning("ログファイルが見つかりませんでした。")
     
     # LLMからの回答を表示
     st.markdown(llm_response["answer"])
@@ -297,8 +288,8 @@ def display_contact_llm_response(llm_response):
     content["mode"] = ct.ANSWER_MODE_2
     content["answer"] = llm_response["answer"]
     
-    # 参照元の文書情報がある場合は追加
-    if llm_response["context"] and llm_response["answer"] != ct.INQUIRY_NO_MATCH_ANSWER:
+    # 参照元の文書情報がある場合または社員情報関連の質問の場合は追加
+    if llm_response["context"] and (llm_response["answer"] != ct.INQUIRY_NO_MATCH_ANSWER or any(doc.metadata["source"].endswith("社員名簿.csv") for doc in llm_response["context"])):
         file_info_list = []
         duplicate_check_list = []
         

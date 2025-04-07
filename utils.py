@@ -83,6 +83,40 @@ def get_llm_response(chat_message):
         ]
     )
 
+    # 社員情報関連のキーワードを検出
+    employee_keywords = ["人事", "従業員", "社員", "部署", "スキル"]
+    is_employee_query = any(keyword in chat_message for keyword in employee_keywords)
+    
+    # 社員情報を含む質問の場合、CSVデータを直接提供
+    employee_context = ""
+    if is_employee_query and st.session_state.mode == ct.ANSWER_MODE_2:
+        try:
+            csv_path = "./data/社員について/社員名簿.csv"
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                
+                # 列名の表記揺れ対策
+                if "所属部署" not in df.columns and "部署" in df.columns:
+                    df = df.rename(columns={"部署": "所属部署"})
+                
+                # 「人事部」のフィルタリング（必要な場合）
+                if "人事部" in chat_message:
+                    if "所属部署" in df.columns:
+                        filtered_df = df[df["所属部署"].str.contains("人事", na=False)]
+                        if not filtered_df.empty:
+                            employee_context = filtered_df.to_markdown(index=False)
+                    else:
+                        employee_context = df.to_markdown(index=False)
+                else:
+                    # 社員情報全体を提供
+                    employee_context = df.to_markdown(index=False)
+                
+                # 社員情報をプロンプトに追加
+                if employee_context:
+                    chat_message = f"以下の社員情報を参照して質問に答えてください：\n\n{employee_context}\n\n質問: {chat_message}"
+        except Exception as e:
+            logging.getLogger(ct.LOGGER_NAME).warning(f"社員情報の読み込みに失敗しました: {e}")
+
     # モードによってLLMから回答を取得する用のプロンプトを変更
     if st.session_state.mode == ct.ANSWER_MODE_1:
         # モードが「社内文書検索」の場合のプロンプト
@@ -90,6 +124,7 @@ def get_llm_response(chat_message):
     else:
         # モードが「社内問い合わせ」の場合のプロンプト
         question_answer_template = ct.SYSTEM_PROMPT_INQUIRY
+        
     # LLMから回答を取得する用のプロンプトテンプレートを作成
     question_answer_prompt = ChatPromptTemplate.from_messages(
         [
@@ -111,6 +146,22 @@ def get_llm_response(chat_message):
 
     # LLMへのリクエストとレスポンス取得
     llm_response = chain.invoke({"input": chat_message, "chat_history": st.session_state.chat_history})
+    
+    # 社員情報関連の質問で、社内問い合わせモードの場合、取得した社員情報を追加
+    if is_employee_query and st.session_state.mode == ct.ANSWER_MODE_2 and employee_context:
+        # 社員情報が提供されている場合、結果が空でも回答を生成
+        if llm_response["answer"] == ct.INQUIRY_NO_MATCH_ANSWER:
+            # 直接LLMに質問して回答を取得
+            direct_response = llm.invoke(f"以下の社員情報を参照して質問に答えてください：\n\n{employee_context}\n\n質問: {chat_message}")
+            llm_response["answer"] = direct_response.content
+            
+            # 社員情報のCSVを参照元として追加
+            if "context" not in llm_response:
+                from langchain_core.documents import Document
+                llm_response["context"] = [
+                    Document(page_content="社員情報", metadata={"source": "./data/社員について/社員名簿.csv"})
+                ]
+    
     # LLMレスポンスを会話履歴に追加
     st.session_state.chat_history.extend([HumanMessage(content=chat_message), llm_response["answer"]])
 
