@@ -30,17 +30,18 @@ SPINNER_TEXT = "回答生成中..."
 # ==========================================
 # サイドバー表示系
 # ==========================================
+EXAMPLE_TITLE = "**【入力例】**"
 SIDEBAR_SEARCH_TITLE = "**『社内文書検索』を選択した場合**"
 SIDEBAR_SEARCH_DESCRIPTION = "入力内容と関連性が高い社内文書のありかを検索できます。"
-SIDEBAR_SEARCH_EXAMPLE = "**【入力例】**\n社員の育成方針に関するMTGの議事録"
+SIDEBAR_SEARCH_EXAMPLE = "社員の育成方針に関するMTGの議事録"
 
 SIDEBAR_INQUIRY_TITLE = "**『社内問い合わせ』を選択した場合**"
 SIDEBAR_INQUIRY_DESCRIPTION = "質問・要望に対して、社内文書の情報をもとに回答を得られます。"
-SIDEBAR_INQUIRY_EXAMPLE = "**【入力例】**\n人事部に所属している従業員情報を一覧化して"
+SIDEBAR_INQUIRY_EXAMPLE = "人事部に所属している従業員情報を一覧化して"
 
 SIDEBAR_EMPLOYEE_TITLE = "**【社員情報を含む質問】**"
 SIDEBAR_EMPLOYEE_DESCRIPTION = "人事・従業員・部署に関する質問をすると、社員名簿のデータを参照して回答します。"
-SIDEBAR_EMPLOYEE_EXAMPLE = "**【入力例】**\n人事部に所属する全従業員のスキルセットを一覧にしてください"
+SIDEBAR_EMPLOYEE_EXAMPLE = "人事部に所属する全従業員のスキルセットを一覧にしてください"
 
 SIDEBAR_DEVELOPER_MODE = "開発者モード"
 DEBUG_EXPANDER_TITLE = "DEBUG情報"
