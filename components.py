@@ -38,21 +38,18 @@ def display_sidebar():
     """
     サイドバーの表示 (新設)
     """
-    # サイドバーのタイトル
-    st.sidebar.title(ct.APP_NAME)
-    
-    # 区切り線
-    st.sidebar.divider()
-    
-    # モードに応じた説明を表示
-    if st.session_state.mode == ct.ANSWER_MODE_1:
-        # 社内文書検索の説明
-        st.sidebar.markdown(ct.SIDEBAR_SEARCH_DESCRIPTION)
-        st.sidebar.markdown(ct.SIDEBAR_SEARCH_EXAMPLE)
-    else:
-        # 社内問い合わせの説明
-        st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
-        st.sidebar.markdown(ct.SIDEBAR_INQUIRY_EXAMPLE)
+    # 「社内文書検索」の機能説明
+    st.sidebar.markdown("**【「社内文書検索」を選択した場合】**")
+    # 「st.info()」を使うと青枠で表示される
+    st.sidebar.info("入力内容と関連性が高い社内文書のありかを検索できます。")
+    # 「st.code()」を使うとコードブロックの装飾で表示される
+    # 「wrap_lines=True」で折り返し設定、「language=None」で非装飾とする
+    st.sidebar.code("【入力例】\n社員の育成方針に関するMTGの議事録", wrap_lines=True, language=None)
+
+    # 「社内問い合わせ」の機能説明
+    st.sidebar.markdown("**【「社内問い合わせ」を選択した場合】**")
+    st.sidebar.info("質問・要望に対して、社内文書の情報をもとに回答を得られます。")
+    st.sidebar.code("【入力例】\n人事部に所属している従業員情報を一覧化して", wrap_lines=True, language=None)
     
     # 区切り線
     st.sidebar.divider()
@@ -73,7 +70,7 @@ def display_sidebar():
     st.session_state.developer_mode = st.sidebar.toggle(
         ct.SIDEBAR_DEVELOPER_MODE,
         value=st.session_state.developer_mode,
-        key="developer_mode_toggle"
+        key="developer_mode_sidebar_toggle"
     )
 
 
