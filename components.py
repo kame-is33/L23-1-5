@@ -25,15 +25,13 @@ def display_select_mode():
     """
     回答モードのラジオボタンを表示
     """
-    # 回答モードを選択する用のラジオボタンを表示
-    col1, col2 = st.columns([100, 1])
-    with col1:
-        # 「label_visibility="collapsed"」とすることで、ラジオボタンを非表示にする
-        st.session_state.mode = st.radio(
-            label="",
-            options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
-            label_visibility="collapsed"
-        )
+    # サイドバーにラジオボタンを表示
+    st.sidebar.markdown("### 利用目的")
+    st.session_state.mode = st.sidebar.radio(
+        label="",
+        options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
+        label_visibility="collapsed"
+    )
 
 
 def display_sidebar():
@@ -46,18 +44,15 @@ def display_sidebar():
     # 区切り線
     st.sidebar.divider()
     
-    # 社内文書検索の説明
-    st.sidebar.markdown(ct.SIDEBAR_SEARCH_TITLE)
-    st.sidebar.markdown(ct.SIDEBAR_SEARCH_DESCRIPTION)
-    st.sidebar.markdown(ct.SIDEBAR_SEARCH_EXAMPLE)
-    
-    # 区切り線
-    st.sidebar.divider()
-    
-    # 社内問い合わせの説明
-    st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
-    st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
-    st.sidebar.markdown(ct.SIDEBAR_INQUIRY_EXAMPLE)
+    # モードに応じた説明を表示
+    if st.session_state.mode == ct.ANSWER_MODE_1:
+        # 社内文書検索の説明
+        st.sidebar.markdown(ct.SIDEBAR_SEARCH_DESCRIPTION)
+        st.sidebar.markdown(ct.SIDEBAR_SEARCH_EXAMPLE)
+    else:
+        # 社内問い合わせの説明
+        st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
+        st.sidebar.markdown(ct.SIDEBAR_INQUIRY_EXAMPLE)
     
     # 区切り線
     st.sidebar.divider()
@@ -78,7 +73,7 @@ def display_sidebar():
     st.session_state.developer_mode = st.sidebar.toggle(
         ct.SIDEBAR_DEVELOPER_MODE,
         value=st.session_state.developer_mode,
-        key="developer_mode"
+        key="developer_mode_toggle"
     )
 
 
