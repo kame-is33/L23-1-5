@@ -39,26 +39,26 @@ def display_sidebar():
     サイドバーの表示 (新設)
     """
     # 「社内文書検索」の機能説明
-    st.sidebar.markdown("**【「社内文書検索」を選択した場合】**")
+    st.sidebar.markdown(ct.SIDEBAR_SEARCH_TITLE)
     # 「st.info()」を使うと青枠で表示される
-    st.sidebar.info("入力内容と関連性が高い社内文書のありかを検索できます。")
+    st.sidebar.info(ct.SIDEBAR_SEARCH_DESCRIPTION)
     # 「st.code()」を使うとコードブロックの装飾で表示される
     # 「wrap_lines=True」で折り返し設定、「language=None」で非装飾とする
-    st.sidebar.code("【入力例】\n社員の育成方針に関するMTGの議事録", wrap_lines=True, language=None)
+    st.sidebar.code(ct.SIDEBAR_SEARCH_EXAMPLE, wrap_lines=True, language=None)
 
     # 「社内問い合わせ」の機能説明
-    st.sidebar.markdown("**【「社内問い合わせ」を選択した場合】**")
-    st.sidebar.info("質問・要望に対して、社内文書の情報をもとに回答を得られます。")
-    st.sidebar.code("【入力例】\n人事部に所属している従業員情報を一覧化して", wrap_lines=True, language=None)
-    
-    # 区切り線
-    st.sidebar.divider()
-    
+    st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
+    st.sidebar.info(ct.SIDEBAR_INQUIRY_DESCRIPTION)
+    st.sidebar.code(ct.SIDEBAR_INQUIRY_EXAMPLE, wrap_lines=True, language=None)
+
     # 社員情報に関する説明
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_TITLE)
-    st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
-    st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_EXAMPLE)
-    
+    st.sidebar.info(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
+    st.sidebar.code(ct.SIDEBAR_EMPLOYEE_EXAMPLE, wrap_lines=True, language=None)
+
+    # 区切り線
+    st.sidebar.divider()
+        
     # 一番下に開発者モードのトグル
     st.sidebar.divider()
     
@@ -165,6 +165,12 @@ def display_search_llm_response(llm_response):
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
+    # 開発者モードがオンの場合、デバッグ情報を表示
+    if st.session_state.developer_mode:
+        with st.expander(ct.DEBUG_EXPANDER_TITLE):
+            st.markdown(ct.DEBUG_LLM_RESPONSE_TITLE)
+            st.json(llm_response)
+    
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
     if llm_response["context"] and llm_response["answer"] != ct.NO_DOC_MATCH_ANSWER:
         # ==========================================
@@ -261,5 +267,74 @@ def display_search_llm_response(llm_response):
         content["mode"] = ct.ANSWER_MODE_1
         content["answer"] = ct.NO_DOC_MATCH_MESSAGE
         content["no_file_path_flg"] = True
+    
+    return content
+
+
+def display_contact_llm_response(llm_response):
+    """
+    「社内問い合わせ」モードにおけるLLMレスポンスを表示
+
+    Args:
+        llm_response: LLMからの回答
+
+    Returns:
+        LLMからの回答を画面表示用に整形した辞書データ
+    """
+    # 開発者モードがオンの場合、デバッグ情報を表示
+    if st.session_state.developer_mode:
+        with st.expander(ct.DEBUG_EXPANDER_TITLE):
+            st.markdown(ct.DEBUG_LLM_RESPONSE_TITLE)
+            st.json(llm_response)
+    
+    # LLMからの回答を表示
+    st.markdown(llm_response["answer"])
+    
+    # 表示用の会話ログに格納するためのデータを用意
+    content = {}
+    content["mode"] = ct.ANSWER_MODE_2
+    content["answer"] = llm_response["answer"]
+    
+    # 参照元の文書情報がある場合は追加
+    if llm_response["context"] and llm_response["answer"] != ct.INQUIRY_NO_MATCH_ANSWER:
+        file_info_list = []
+        duplicate_check_list = []
+        
+        # 参照元のドキュメント情報をリストに追加
+        for document in llm_response["context"]:
+            # ドキュメントのファイルパスを取得
+            file_path = document.metadata["source"]
+            
+            # 重複を除去
+            if file_path in duplicate_check_list:
+                continue
+                
+            # 重複チェック用のリストにファイルパスを追加
+            duplicate_check_list.append(file_path)
+            
+            # ファイル情報をリストに追加
+            if "page" in document.metadata:
+                file_info = f"{file_path}（Page #{document.metadata['page']}）"
+            else:
+                file_info = file_path
+                
+            file_info_list.append(file_info)
+        
+        # 参照元情報がある場合のみ、表示用の会話ログに追加
+        if file_info_list:
+            message = "情報源"
+            content["message"] = message
+            content["file_info_list"] = file_info_list
+            
+            # 区切り線
+            st.divider()
+            
+            # 「情報源」の見出し表示
+            st.markdown(f"##### {message}")
+            
+            # 参照元ドキュメントの一覧表示
+            for file_info in file_info_list:
+                icon = utils.get_source_icon(file_info)
+                st.info(file_info, icon=icon)
     
     return content
