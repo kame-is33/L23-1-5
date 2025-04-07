@@ -57,20 +57,6 @@ def display_sidebar():
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
     st.sidebar.code(ct.SIDEBAR_EMPLOYEE_EXAMPLE, wrap_lines=True, language=None)
 
-    # 区切り線
-    st.sidebar.divider()
-    
-    # セッション状態に開発者モードのフラグが存在しない場合は初期化
-    if "developer_mode" not in st.session_state:
-        st.session_state.developer_mode = False
-    
-    # 開発者モードのトグル
-    st.session_state.developer_mode = st.sidebar.toggle(
-        ct.SIDEBAR_DEVELOPER_MODE,
-        value=st.session_state.developer_mode,
-        key="developer_mode_sidebar_toggle"
-    )
-
 
 def display_initial_ai_message():
     """
@@ -164,10 +150,19 @@ def display_search_llm_response(llm_response):
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードがオンの場合、DEBUGログを表示
-    if st.session_state.get("show_debug_logs", False):
-        with st.expander("DEBUG情報"):
+    if st.session_state.get("debug_mode", False):
+        with st.expander("DEBUG情報", expanded=True):
             st.markdown("### LLMレスポンス（生データ）")
             st.json(llm_response)
+            
+            # ログファイルも表示
+            st.markdown("### ログファイル内容")
+            try:
+                with open("logs/application.log", "r", encoding="utf-8") as f:
+                    log_content = f.read()
+                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
+            except FileNotFoundError:
+                st.warning("ログファイルが見つかりませんでした。")
     
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
     if llm_response["context"] and llm_response["answer"] != ct.NO_DOC_MATCH_ANSWER:
@@ -280,10 +275,19 @@ def display_contact_llm_response(llm_response):
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードがオンの場合、デバッグ情報を表示
-    if st.session_state.get("show_debug_logs", False):
-        with st.expander("DEBUG情報"):
+    if st.session_state.get("debug_mode", False):
+        with st.expander("DEBUG情報", expanded=True):
             st.markdown("### LLMレスポンス（生データ）")
             st.json(llm_response)
+            
+            # ログファイルも表示
+            st.markdown("### ログファイル内容")
+            try:
+                with open("logs/application.log", "r", encoding="utf-8") as f:
+                    log_content = f.read()
+                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
+            except FileNotFoundError:
+                st.warning("ログファイルが見つかりませんでした。")
     
     # LLMからの回答を表示
     st.markdown(llm_response["answer"])
