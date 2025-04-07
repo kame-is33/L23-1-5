@@ -50,12 +50,12 @@ def display_sidebar():
     # 「社内問い合わせ」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
-    st.sidebar.code(f"{ct.EXAMPLE_TITLE}\n{ct.SIDEBAR_INQUIRY_EXAMPLE}", wrap_lines=True, language=None)
+    st.sidebar.code(ct.SIDEBAR_INQUIRY_EXAMPLE, wrap_lines=True, language=None)
 
     # 社員情報に関する説明
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_TITLE)
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
-    st.sidebar.code(f"{ct.EXAMPLE_TITLE}\n{ct.SIDEBAR_EMPLOYEE_EXAMPLE}", wrap_lines=True, language=None)
+    st.sidebar.code(ct.SIDEBAR_EMPLOYEE_EXAMPLE, wrap_lines=True, language=None)
 
     # 区切り線
     st.sidebar.divider()
