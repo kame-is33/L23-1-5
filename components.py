@@ -50,11 +50,13 @@ def display_sidebar():
     # 「社内問い合わせ」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
+    st.sidebar.markdown(ct.EXAMPLE_TITLE)
     st.sidebar.code(ct.SIDEBAR_INQUIRY_EXAMPLE, wrap_lines=True, language=None)
 
     # 社員情報に関する説明
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_TITLE)
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
+    st.sidebar.markdown(ct.EXAMPLE_TITLE)
     st.sidebar.code(ct.SIDEBAR_EMPLOYEE_EXAMPLE, wrap_lines=True, language=None)
 
 
@@ -149,21 +151,10 @@ def display_search_llm_response(llm_response):
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
-    # 開発者モードがオンの場合、DEBUGログを表示
-    if st.session_state.get("debug_mode", False):
-        with st.expander("DEBUG情報", expanded=True):
-            st.markdown("### LLMレスポンス（生データ）")
-            st.json(llm_response)
-            
-            # ログファイルも表示
-            st.markdown("### ログファイル内容")
-            try:
-                with open("logs/application.log", "r", encoding="utf-8") as f:
-                    log_content = f.read()
-                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-            except FileNotFoundError:
-                st.warning("ログファイルが見つかりませんでした。")
+    # 開発者モードの場合、デバッグ情報を表示
+    display_debug_info(llm_response)
     
+    # 以下は既存のコードを維持
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
     if llm_response["context"] and llm_response["answer"] != ct.NO_DOC_MATCH_ANSWER:
         # ==========================================
@@ -274,12 +265,10 @@ def display_contact_llm_response(llm_response):
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
-    # 開発者モードがオンの場合、デバッグ情報を表示
-    if st.session_state.get("debug_mode", False):
-        with st.expander("DEBUG情報", expanded=True):
-            st.markdown("### LLMレスポンス（生データ）")
-            st.json(llm_response)
+    # 開発者モードの場合、デバッグ情報を表示
+    display_debug_info(llm_response)
     
+    # 以下は既存のコード
     # LLMからの回答を表示
     st.markdown(llm_response["answer"])
     
@@ -332,3 +321,61 @@ def display_contact_llm_response(llm_response):
                 st.info(file_info, icon=icon)
     
     return content
+
+
+def display_debug_info(llm_response, chat_message=None):
+    """
+    デバッグ情報を統一された順序で表示する
+    
+    Args:
+        llm_response: LLMからの回答
+        chat_message: ユーザーの入力メッセージ（オプション）
+    """
+    # 開発者モードがオンの場合のみ表示
+    if st.session_state.get("debug_mode", False):
+        with st.expander("🔍 DEBUG情報", expanded=True):
+            # 1. LLMレスポンス（生データ）
+            st.markdown("### LLMレスポンス（生データ）")
+            debug_json = {
+                "input": chat_message if chat_message else "不明",
+                "chat_history": st.session_state.get("chat_history", []),
+                "context": [d.page_content for d in llm_response.get("context", [])]
+                if "context" in llm_response else [],
+                "answer": llm_response.get("answer", "")
+            }
+            st.json(debug_json)
+            
+            # 2. ログファイル内容
+            st.markdown("### ログファイル内容")
+            try:
+                with open("logs/application.log", "r", encoding="utf-8") as f:
+                    log_content = f.read()
+                    # 最新の内容を表示（長すぎる場合は最後の部分のみ）
+                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
+            except Exception as e:
+                st.warning(f"ログファイルの読み込みに失敗しました: {e}")
+            
+            # 3. 生成された回答
+            st.markdown("### 生成された回答")
+            if "answer" in llm_response:
+                st.markdown(llm_response["answer"])
+            else:
+                st.info("回答が見つかりません")
+            
+            # 4. 情報源
+            st.markdown("### 情報源")
+            if "context" in llm_response and llm_response["context"]:
+                file_info = set()
+                for doc in llm_response["context"]:
+                    source = doc.metadata.get("source", "不明")
+                    page = doc.metadata.get("page", None)
+                    info = f"{source}"
+                    if page:
+                        info += f"（Page #{page}）"
+                    file_info.add(info)
+                
+                for info in sorted(list(file_info)):
+                    icon = utils.get_source_icon(info)
+                    st.info(info, icon=icon)
+            else:
+                st.info("情報源なし")
