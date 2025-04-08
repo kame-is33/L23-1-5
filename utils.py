@@ -32,13 +32,15 @@ def check_files_for_updates(file_paths, reference_time):
 
 def build_error_message(errors):
     """
-    エラーメッセージのリストから１つのフォーマット済み文字列を生成します。
-    :param errors: エラー内容の文字列リスト
-    :return: 整形されたエラーメッセージ文字列
+    エラーメッセージのリストまたは文字列から、フォーマット済み文字列を生成します。
     """
     if not errors:
         return "エラーは発生していません。"
-    
+
+    # 単一の文字列が渡された場合、リストに変換する
+    if isinstance(errors, str):
+        errors = [errors]
+
     message = "以下のエラーが発生しました：\n"
     for i, error in enumerate(errors, 1):
         message += f"{i}. {error}\n"
