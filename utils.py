@@ -16,9 +16,11 @@ def analyze_csv_structure(csv_path):
     try:
         import pandas as pd
         if os.path.exists(csv_path):
-            # CSVファイル読み込み・分析処理（前回提案したコード）
-            ...
-
+            df = pd.read_csv(csv_path)
+            # 全カラム名とそのデータ型を返す例
+            return df.columns.tolist(), df.dtypes.to_dict()
+        else:
+            return None, None
     except Exception as e:
         logging.getLogger(ct.LOGGER_NAME).error(f"CSV構造分析エラー: {e}")
         return None, None
@@ -140,9 +142,12 @@ def get_llm_response(chat_message):
     if is_employee_query and llm_response["answer"] == ct.INQUIRY_NO_MATCH_ANSWER:
         try:
             csv_path = "./data/社員について/社員名簿.csv"
-            # CSVの構造を分析（前回提案したフィルタリングコード）
-            ...
-
+            columns, _ = analyze_csv_structure(csv_path)
+            if columns:
+                fallback_answer = f"社員名簿には以下のカラムが含まれています: {', '.join(columns)}"
+            else:
+                fallback_answer = "社員情報が確認できませんでした。"
+            llm_response["answer"] = fallback_answer
         except Exception as e:
             logging.getLogger(ct.LOGGER_NAME).warning(f"社員情報による直接回答の生成に失敗しました: {e}")
 
@@ -150,3 +155,10 @@ def get_llm_response(chat_message):
     st.session_state.chat_history.extend([HumanMessage(content=chat_message), llm_response["answer"]])
 
     return llm_response
+
+def build_error_message(message: str) -> str:
+    """
+    エラーメッセージを整形して返す関数です。
+    運用上必要な追加情報（例：タイムスタンプやエラーコード）を付加する拡張も可能です。
+    """
+    return f"エラーが発生しました: {message}"

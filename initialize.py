@@ -146,6 +146,10 @@ def initialize_session_state():
         st.session_state.messages = []
         # 「LLMとのやりとり用」の会話ログを順次格納するリストを用意
         st.session_state.chat_history = []
+    
+    # 追加: モードの初期設定を行う
+    if "mode" not in st.session_state:
+        st.session_state.mode = ct.ANSWER_MODE_1  # 初期モードとして ANSWER_MODE_1 を設定
 
 
 def load_data_sources():
