@@ -97,6 +97,10 @@ def get_llm_response(chat_message):
     Returns:
         LLMからの回答
     """
+    if not st.session_state.get("retriever"):
+        st.error("❗ retriever が初期化されていません。initialize.py を確認してください。")
+        return {"answer": "内部エラー：retriever未初期化"}
+
     # LLMのオブジェクトを用意
     llm = ChatOpenAI(model_name=ct.MODEL, temperature=ct.TEMPERATURE)
 
@@ -162,6 +166,9 @@ def get_llm_response(chat_message):
     history_aware_retriever = create_history_aware_retriever(
         llm, st.session_state.retriever, question_generator_prompt
     )
+
+    logging.getLogger(ct.LOGGER_NAME).info(f"[DEBUG] Retriever入力値: input={chat_message}")
+    logging.getLogger(ct.LOGGER_NAME).info(f"[DEBUG] Retrieverオブジェクト: {st.session_state.retriever}")
 
     # Retrieverを使って文脈情報を取得
     retrieved_docs = history_aware_retriever.invoke({
