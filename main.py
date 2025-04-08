@@ -74,7 +74,7 @@ with st.sidebar:
     st.session_state.debug_mode = debug_mode
 
 if debug_mode:
-    cn.display_debug_info()
+    cn.display_debug_info({}, "")
 
 # AIメッセージの初期表示
 cn.display_initial_ai_message()
