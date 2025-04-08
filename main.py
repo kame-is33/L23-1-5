@@ -110,7 +110,12 @@ if chat_message:
     # 7-0. ファイル更新チェック　新設
     # ==========================================
     # ファイル更新チェック
-    files_updated = check_files_for_updates()
+    if "upload_time" in st.session_state and "uploaded_files" in st.session_state:
+        file_paths = [file.name for file in st.session_state.uploaded_files]
+        ref_time = st.session_state.upload_time
+        files_updated = check_files_for_updates(file_paths, ref_time)
+    else:
+        files_updated = []
     if files_updated:
         st.info(ct.FILE_UPDATE_MESSAGE, icon=ct.FILE_UPDATE_ICON)
 
