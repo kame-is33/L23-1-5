@@ -1,7 +1,6 @@
 import pandas as pd  # この行を追加して pandas をインポート
 import os
 import logging
-from dotenv import load_dotenv
 import streamlit as st
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import HumanMessage

@@ -36,12 +36,22 @@ def display_select_mode():
 
 def display_sidebar():
     """
-    サイドバーの表示 (新設)
+    サイドバーの表示
     """
+    with st.sidebar:
+        st.markdown("### 利用目的")
+        st.session_state.mode = st.sidebar.radio(
+        label="",
+        options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
+        label_visibility="collapsed"
+        )
+        
+        st.divider()
+
     # 「社内文書検索」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_SEARCH_TITLE)
     # 「st.info()」を使うと青枠で表示される
-    st.sidebar.markdown(ct.SIDEBAR_SEARCH_DESCRIPTION)
+    st.sidebar.info(ct.SIDEBAR_SEARCH_DESCRIPTION)
     # 「st.code()」を使うとコードブロックの装飾で表示される
     # 「wrap_lines=True」で折り返し設定、「language=None」で非装飾とする
     st.sidebar.markdown(ct.EXAMPLE_TITLE)
@@ -49,13 +59,13 @@ def display_sidebar():
 
     # 「社内問い合わせ」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
-    st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
+    st.sidebar.info(ct.SIDEBAR_INQUIRY_DESCRIPTION)
     st.sidebar.markdown(ct.EXAMPLE_TITLE)
     st.sidebar.code(ct.SIDEBAR_INQUIRY_EXAMPLE, wrap_lines=True, language=None)
 
     # 社員情報に関する説明
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_TITLE)
-    st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
+    st.sidebar.info(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
     st.sidebar.markdown(ct.EXAMPLE_TITLE)
     st.sidebar.code(ct.SIDEBAR_EMPLOYEE_EXAMPLE, wrap_lines=True, language=None)
 
@@ -66,7 +76,8 @@ def display_initial_ai_message():
     """
     with st.chat_message("assistant"):
         # 「st.success()」とすると緑枠で表示される
-        st.markdown("こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。上記で利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。")
+        st.success("こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。上記で利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。")
+        st.warning("具体的に入力したほうが期待通りの回答を得やすいです。", icon=ct.WARNING_ICON)
 
 
 def display_conversation_log():

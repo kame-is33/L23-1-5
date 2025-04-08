@@ -81,7 +81,7 @@ WEB_URL_LOAD_TARGETS = [
 # ==========================================
 # RAG設定系　追加
 # ==========================================
-RETRIEVER_DOCUMENT_COUNT = 3     # 検索結果として取得するドキュメント数
+RETRIEVER_DOCUMENT_COUNT = 5     # 検索結果として取得するドキュメント数
 CHUNK_SIZE = 500                 # チャンク分割サイズ
 CHUNK_OVERLAP = 50               # チャンク分割時のオーバーラップサイズ
 
