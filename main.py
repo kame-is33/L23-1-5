@@ -73,9 +73,6 @@ with st.sidebar:
     # トグルの状態をセッション変数に保存
     st.session_state.debug_mode = debug_mode
 
-if debug_mode:
-    cn.display_debug_info({}, "")
-
 # AIメッセージの初期表示
 cn.display_initial_ai_message()
 
@@ -163,3 +160,9 @@ if chat_message:
     st.session_state.messages.append({"role": "user", "content": chat_message})
     # 表示用の会話ログにAIメッセージを追加
     st.session_state.messages.append({"role": "assistant", "content": content})
+
+    # ==========================================
+    # 7-5. デバッグ情報の表示（開発者モード）
+    # ==========================================
+    if debug_mode:
+        cn.display_debug_info(llm_response, chat_message)
