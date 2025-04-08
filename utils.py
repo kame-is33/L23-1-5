@@ -154,7 +154,7 @@ def get_llm_response(chat_message):
         [
             ("system", question_answer_template),
             MessagesPlaceholder("chat_history"),
-            ("human", "{input}")
+            ("human", "{user_input}")
         ]
     )
 
@@ -163,13 +163,23 @@ def get_llm_response(chat_message):
         llm, st.session_state.retriever, question_generator_prompt
     )
 
+    # Retrieverを使って文脈情報を取得
+    retrieved_docs = history_aware_retriever.invoke({
+        "chat_history": st.session_state.chat_history,
+        "input": chat_message
+    })
+
     # LLMから回答を取得する用のChainを作成
     question_answer_chain = create_stuff_documents_chain(llm, question_answer_prompt)
     # 「RAG x 会話履歴の記憶機能」を実現するためのChainを作成
     chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
     # LLMへのリクエストとレスポンス取得
-    llm_response = chain.invoke({"input": chat_message, "chat_history": st.session_state.chat_history})
+    llm_response = chain.invoke({
+        "user_input": chat_message,
+        "chat_history": st.session_state.chat_history,
+        "context": retrieved_docs
+    })
 
     # 社員情報関連の質問で「情報が見つからなかった」場合は直接問い合わせ
     if is_employee_query and llm_response["answer"] == ct.INQUIRY_NO_MATCH_ANSWER:
