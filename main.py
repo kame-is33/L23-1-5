@@ -44,6 +44,7 @@ try:
 except Exception as e:
     # エラーログの出力
     logger.error(f"{ct.INITIALIZE_ERROR_MESSAGE}\n{e}")
+    st.exception(e)
     # エラーメッセージの画面表示
     st.error(build_error_message(ct.INITIALIZE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
     # 後続の処理を中断
@@ -90,6 +91,7 @@ try:
 except Exception as e:
     # エラーログの出力
     logger.error(f"{ct.CONVERSATION_LOG_ERROR_MESSAGE}\n{e}")
+    st.exception(e)
     # エラーメッセージの画面表示
     st.error(build_error_message(ct.CONVERSATION_LOG_ERROR_MESSAGE), icon=ct.ERROR_ICON)
     # 後続の処理を中断
@@ -152,6 +154,7 @@ if chat_message:
         except Exception as e:
             # エラーログの出力
             logger.error(f"{ct.GET_LLM_RESPONSE_ERROR_MESSAGE}\n{e}")
+            st.exception(e)
             # エラーメッセージの画面表示
             st.error(build_error_message(ct.GET_LLM_RESPONSE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
             # 後続の処理を中断
@@ -183,30 +186,31 @@ if chat_message:
                 # 追加: 空の回答に対するフォールバックメッセージ
                 if not content:
                     content = "申し訳ありませんが、回答を生成できませんでした。"
-                
-                # ==========================================
-                # DEBUGログの表示（開発者モードON時のみ）
-                # ==========================================
-                if st.session_state.get("debug_mode", False):
-                    with st.expander("DEBUGログ", expanded=True):
-                        st.markdown("### LLMレスポンス（生データ）")
-                        st.json(llm_response)
-                        
-                        st.markdown("### ログファイル内容")
-                        try:
-                            with open("logs/application.log", "r", encoding="utf-8") as f:
-                                log_content = f.read()
-                                st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-                        except FileNotFoundError:
-                            st.warning("ログファイルが見つかりませんでした。")
-                            
+
             except Exception as e:
                 # エラーログの出力
                 logger.error(f"{ct.DISP_ANSWER_ERROR_MESSAGE}\n{e}")
+                st.exception(e)
                 # エラーメッセージの画面表示
                 st.error(build_error_message(ct.DISP_ANSWER_ERROR_MESSAGE), icon=ct.ERROR_ICON)
                 # 後続の処理を中断
                 st.stop()
+
+    # ==========================================
+    # DEBUGログの表示（開発者モードON時のみ）
+    # ==========================================
+    if st.session_state.get("debug_mode", False):
+        with st.expander("DEBUGログ", expanded=True):
+            st.markdown("### LLMレスポンス（生データ）")
+            st.json(llm_response)
+            
+            st.markdown("### ログファイル内容")
+            try:
+                with open("logs/application.log", "r", encoding="utf-8") as f:
+                    log_content = f.read()
+                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
+            except FileNotFoundError:
+                st.warning("ログファイルが見つかりませんでした。")
 
     # ==========================================
     # 7-4. 会話ログへの追加
