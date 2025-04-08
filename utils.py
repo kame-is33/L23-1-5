@@ -11,7 +11,7 @@ import logging
 import streamlit as st
 import time
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.schema import HumanMessage
+from langchain.schema import HumanMessage, Document
 from langchain_openai import ChatOpenAI
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -64,109 +64,196 @@ def get_llm_response(chat_message):
     """
     # LLMのオブジェクトを用意
     llm = ChatOpenAI(model_name=ct.MODEL, temperature=ct.TEMPERATURE)
+    logger = logging.getLogger(ct.LOGGER_NAME)
 
     # 社員情報関連のキーワードを検出
-    employee_keywords = ["人事", "従業員", "社員", "部署", "スキル"]
-    is_employee_query = any(keyword in chat_message for keyword in employee_keywords)
+    is_employee_query = any(keyword in chat_message for keyword in ct.EMPLOYEE_KEYWORDS)
     
-    # 社員情報の追加処理
-    if is_employee_query and st.session_state.mode == ct.ANSWER_MODE_2:
-        try:
-            csv_path = "./data/社員について/社員名簿.csv"
-            if os.path.exists(csv_path):
-                # 社員データの読み込み
-                employee_df = pd.read_csv(csv_path)
-                
-                # 人事部のフィルタリング
-                dept_column = None
-                for col in employee_df.columns:
-                    if "部署" in col or "所属" in col:
-                        dept_column = col
-                        break
-                
-                # 強制的に回答を生成
-                from langchain_core.documents import Document
-                dummy_doc = Document(
-                    page_content="社員情報があります",
-                    metadata={"source": "./data/社員について/社員名簿.csv"}
-                )
-                
-                # チャットメッセージをモディファイ
-                chat_message = f"社員名簿を参照して次の質問に答えてください: {chat_message}"
-        except Exception as e:
-            logging.getLogger(ct.LOGGER_NAME).warning(f"社員情報の読み込みに失敗しました: {e}")
-
-    # 会話履歴なしでもLLMに理解してもらえる、独立した入力テキストを取得するためのプロンプトテンプレートを作成
-    question_generator_template = ct.SYSTEM_PROMPT_CREATE_INDEPENDENT_TEXT
-    question_generator_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", question_generator_template),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}")
-        ]
-    )
-
-    # モードによってLLMから回答を取得する用のプロンプトを変更
-    if st.session_state.mode == ct.ANSWER_MODE_1:
-        # モードが「社内文書検索」の場合のプロンプト
-        question_answer_template = ct.SYSTEM_PROMPT_DOC_SEARCH
+    # ベクターストアを取得
+    vectorstore = st.session_state.vectorstore
+    
+    # クエリに応じてRetrieverのドキュメント取得数を調整
+    if is_employee_query:
+        # 社員情報クエリの場合は取得数を増加
+        retriever = vectorstore.as_retriever(search_kwargs={"k": ct.RETRIEVER_DOCUMENT_COUNT_EMPLOYEE})
+        logger.info(f"社員情報に関する質問を検出しました。ドキュメント取得数を{ct.RETRIEVER_DOCUMENT_COUNT_EMPLOYEE}に設定します。")
     else:
-        # モードが「社内問い合わせ」の場合のプロンプト
-        question_answer_template = ct.SYSTEM_PROMPT_INQUIRY
-
-    # LLMから回答を取得する用のプロンプトテンプレートを作成
-    question_answer_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", question_answer_template),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}")
-        ]
-    )
-
-    # 会話履歴なしでもLLMに理解してもらえる、独立した入力テキストを取得するためのRetrieverを作成
-    history_aware_retriever = create_history_aware_retriever(
-        llm, st.session_state.retriever, question_generator_prompt
-    )
-
-    # LLMから回答を取得する用のChainを作成
-    question_answer_chain = create_stuff_documents_chain(llm, question_answer_prompt)
-    # 「RAG x 会話履歴の記憶機能」を実現するためのChainを作成
-    chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-
-    # LLMへのリクエストとレスポンス取得
-    llm_response = chain.invoke({"input": chat_message, "chat_history": st.session_state.chat_history})
-
-    # 社員情報関連の質問で「情報が見つからなかった」場合は直接問い合わせ
-    if is_employee_query and llm_response["answer"] == ct.INQUIRY_NO_MATCH_ANSWER:
+        # 通常のクエリの場合はデフォルト値を使用
+        retriever = vectorstore.as_retriever(search_kwargs={"k": ct.RETRIEVER_DOCUMENT_COUNT_DEFAULT})
+    
+    # 社内問い合わせモードで社員情報に関する質問の場合、専用処理ルートを実行
+    if is_employee_query and st.session_state.mode == ct.ANSWER_MODE_2 and "employee_csv_path" in st.session_state:
         try:
-            csv_path = "./data/社員について/社員名簿.csv"
-            columns, _ = analyze_csv_structure(csv_path)
-            if columns:
-                fallback_answer = f"社員名簿には以下のカラムが含まれています: {', '.join(columns)}"
-            else:
-                fallback_answer = "社員情報が確認できませんでした。"
-            llm_response["answer"] = fallback_answer
+            # 検出済みの社員名簿ファイルパスを取得
+            employee_csv_path = st.session_state.employee_csv_path
+            logger.info(f"社員情報に関する質問を検出しました。社員名簿データを処理します: {employee_csv_path}")
+            
+            # 社員名簿データの読み込み
+            employee_df = pd.read_csv(employee_csv_path)
+            
+            # CSVファイルの構造を分析して重要なカラムを特定
+            columns_info = analyze_csv_structure(employee_csv_path)
+            
+            # 社員データを文字列に変換（表形式を維持）
+            employee_data = format_employee_data(employee_df)
+            
+            # 社員情報専用のプロンプトを作成
+            employee_prompt = ChatPromptTemplate.from_messages([
+                ("system", ct.SYSTEM_PROMPT_EMPLOYEE.format(employee_data=employee_data)),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}")
+            ])
+            
+            # 社員情報専用のチェーンを作成
+            employee_chain = employee_prompt | llm
+            
+            # 社員情報専用のチェーンを実行
+            response = employee_chain.invoke({
+                "input": chat_message,
+                "chat_history": st.session_state.chat_history
+            })
+            
+            # 応答結果を整形
+            llm_response = {
+                "answer": response.content,
+                "context": [
+                    Document(
+                        page_content=employee_data,
+                        metadata={"source": employee_csv_path, "is_employee_data": True}
+                    )
+                ]
+            }
+            
+            # LLMレスポンスを会話履歴に追加
+            st.session_state.chat_history.extend([
+                HumanMessage(content=chat_message), 
+                HumanMessage(content=response.content)
+            ])
+            
+            logger.info("社員情報専用処理ルートで回答を生成しました。")
+            return llm_response
+                
         except Exception as e:
-            logging.getLogger(ct.LOGGER_NAME).warning(f"社員情報による直接回答の生成に失敗しました: {e}")
+            logger.error(f"社員情報の処理中にエラーが発生しました: {e}")
+            # エラーが発生した場合は通常の処理フローに戻る
+    
+list()
+                
+                # フォールバック回答の生成
+                fallback_answer = f"""
+                ### 社員情報検索結果
+                
+                社員名簿には以下の情報が含まれています：
+                
+                {', '.join(columns)}
+                
+                より具体的な質問をいただくと、詳細な情報を提供できます。
+                """
+                
+                llm_response["answer"] = fallback_answer
+                
+                # コンテキストに社員名簿の情報を追加
+                llm_response["context"] = [
+                    Document(
+                        page_content="社員名簿の概要情報",
+                        metadata={"source": ct.EMPLOYEE_CSV_PATH}
+                    )
+                ]
+                
+                logger.info("社員情報に関するフォールバック回答を生成しました。")
+        except Exception as e:
+            logger.error(f"社員情報のフォールバック処理中にエラーが発生しました: {e}")
 
     # LLMレスポンスを会話履歴に追加
-    st.session_state.chat_history.extend([HumanMessage(content=chat_message), llm_response["answer"]])
+    st.session_state.chat_history.extend([
+        HumanMessage(content=chat_message), 
+        HumanMessage(content=llm_response["answer"])
+    ])
 
     return llm_response
 
 
 def analyze_csv_structure(csv_path):
-    """CSVファイルの構造を分析し、重要なカラム名を特定する関数"""
+    """
+    CSVファイルの構造を分析し、重要なカラム名と統計情報を取得する
+    
+    Args:
+        csv_path: CSVファイルのパス
+        
+    Returns:
+        CSVファイルの構造情報を含む辞書
+    """
     try:
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
-            # 全カラム名とそのデータ型を返す例
-            return df.columns.tolist(), df.dtypes.to_dict()
+            
+            # CSVファイルの基本情報を収集
+            info = {
+                "columns": df.columns.tolist(),
+                "row_count": len(df),
+                "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+                "sample_data": df.head(2).to_dict(orient="records"),
+                "unique_values": {
+                    col: df[col].unique().tolist() 
+                    for col in df.columns 
+                    if df[col].nunique() < 10 and pd.api.types.is_object_dtype(df[col])
+                }
+            }
+            
+            # 部署カラムの特定
+            dept_columns = [col for col in df.columns if any(keyword in col for keyword in ["部署", "所属"])]
+            if dept_columns:
+                info["dept_column"] = dept_columns[0]
+                info["departments"] = df[dept_columns[0]].unique().tolist()
+            
+            # スキルカラムの特定
+            skill_columns = [col for col in df.columns if any(keyword in col for keyword in ["スキル", "能力", "技術"])]
+            if skill_columns:
+                info["skill_column"] = skill_columns[0]
+            
+            return info
         else:
-            return None, None
+            return None
     except Exception as e:
         logging.getLogger(ct.LOGGER_NAME).error(f"CSV構造分析エラー: {e}")
-        return None, None
+        return None
+
+
+def format_employee_data(df):
+    """
+    社員データを見やすい形式にフォーマット
+    
+    Args:
+        df: 社員データのDataFrame
+        
+    Returns:
+        フォーマットされた社員データの文字列
+    """
+    # 行数が少ない場合は表形式で全データを表示
+    if len(df) <= 20:
+        return df.to_string(index=False)
+    
+    # 行数が多い場合は概要情報と部署別の集計を表示
+    header = f"社員データ概要（全{len(df)}名）\n\n"
+    
+    # 部署カラムの特定
+    dept_col = None
+    for col in df.columns:
+        if any(keyword in col.lower() for keyword in ["部署", "所属"]):
+            dept_col = col
+            break
+    
+    # 部署別の人数集計
+    dept_summary = ""
+    if dept_col:
+        dept_counts = df[dept_col].value_counts().reset_index()
+        dept_counts.columns = [dept_col, "人数"]
+        dept_summary = f"\n部署別人数:\n{dept_counts.to_string(index=False)}\n\n"
+    
+    # 生のデータテーブル
+    data_table = "社員データ（全員）:\n" + df.to_string(index=False)
+    
+    return header + dept_summary + data_table
 
 
 def check_files_for_updates():

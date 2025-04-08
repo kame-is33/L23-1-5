@@ -8,6 +8,9 @@
 import streamlit as st
 import utils
 import constants as ct
+import os
+import pandas as pd
+import logging
 
 
 ############################################################
@@ -112,7 +115,7 @@ def display_conversation_log():
                                 # 参照元のありかに応じて、適したアイコンを取得
                                 icon = utils.get_source_icon(sub_choice['source'])
                                 # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
-                                if "page" in sub_choice:
+                                if "page_number" in sub_choice and sub_choice["page_number"]:
                                     st.info(f"{sub_choice['source']}", icon=icon)
                                 else:
                                     st.info(f"{sub_choice['source']}", icon=icon)
@@ -203,6 +206,7 @@ def display_search_llm_response(llm_response):
             # サブドキュメントの表示情報を準備
             sub_file_info = sub_file_path
             # ページ番号が取得できた場合、ファイル情報に追加
+            page_number = None
             if "page" in document.metadata:
                 page_number = document.metadata["page"]
                 sub_file_info = f"{sub_file_path}（Page #{page_number}）"
@@ -214,7 +218,7 @@ def display_search_llm_response(llm_response):
             # 後ほど一覧表示するため、サブドキュメントに関する情報を順次リストに追加
             sub_choices.append({
                 "source": sub_file_path,
-                "page_number": page_number if "page" in document.metadata else None
+                "page_number": page_number
             })
         
         # サブドキュメントが存在する場合のみの処理
@@ -265,7 +269,9 @@ def display_contact_llm_response(llm_response):
     # 開発者モードの場合、デバッグ情報を表示
     display_debug_info(llm_response)
     
-    # 以下は既存のコード
+    # 社員情報クエリかどうかの確認（utils.pyの結果を保持）
+    is_employee_query = any(keyword in llm_response.get("query", "") for keyword in ct.EMPLOYEE_KEYWORDS)
+    
     # LLMからの回答を表示
     st.markdown(llm_response["answer"])
     
@@ -273,6 +279,11 @@ def display_contact_llm_response(llm_response):
     content = {}
     content["mode"] = ct.ANSWER_MODE_2
     content["answer"] = llm_response["answer"]
+    content["is_employee_query"] = is_employee_query
+    
+    # クエリ情報が含まれていれば保存
+    if "query" in llm_response:
+        content["query"] = llm_response["query"]
     
     # 参照元の文書情報がある場合は追加
     # 回答が「見つかりませんでした」でも、contextが存在すれば表示
@@ -341,6 +352,19 @@ def display_debug_info(llm_response, chat_message=None):
                 "answer": llm_response.get("answer", "")
             }
             st.json(debug_json)
+            
+            # 社員情報関連の質問の場合、CSVファイルの詳細情報を表示
+            if any(keyword in debug_json["input"] for keyword in ct.EMPLOYEE_KEYWORDS if isinstance(debug_json["input"], str)):
+                st.markdown("### 社員名簿CSVファイル情報")
+                try:
+                    if os.path.exists(ct.EMPLOYEE_CSV_PATH):
+                        df = pd.read_csv(ct.EMPLOYEE_CSV_PATH)
+                        st.write(f"総行数: {len(df)}")
+                        st.write(f"カラム名: {', '.join(df.columns)}")
+                        st.write("データサンプル:")
+                        st.dataframe(df.head(5))
+                except Exception as e:
+                    st.warning(f"社員名簿の読み込みに失敗しました: {e}")
             
             # 2. ログファイル内容
             st.markdown("### ログファイル内容")
