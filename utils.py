@@ -1,7 +1,15 @@
-import pandas as pd  # この行を追加して pandas をインポート
+"""
+このファイルは、画面表示以外の様々な関数定義のファイルです。
+"""
+
+############################################################
+# ライブラリの読み込み
+############################################################
+import pandas as pd
 import os
 import logging
 import streamlit as st
+import time
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import HumanMessage
 from langchain_openai import ChatOpenAI
@@ -9,49 +17,40 @@ from langchain.chains import create_history_aware_retriever, create_retrieval_ch
 from langchain.chains.combine_documents import create_stuff_documents_chain
 import constants as ct
 
-# 新しい関数を追加
-def analyze_csv_structure(csv_path):
-    """CSVファイルの構造を分析し、重要なカラム名を特定する関数"""
-    try:
-        import pandas as pd
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
-            # 全カラム名とそのデータ型を返す例
-            return df.columns.tolist(), df.dtypes.to_dict()
-        else:
-            return None, None
-    except Exception as e:
-        logging.getLogger(ct.LOGGER_NAME).error(f"CSV構造分析エラー: {e}")
-        return None, None
 
-def load_csv_to_vectorstore(csv_path, vectorstore):
-    """CSVファイルをベクターストアに登録する関数"""
-    try:
-        df = pd.read_csv(csv_path)
-        documents = []
-        
-        for index, row in df.iterrows():
-            # 各行を構造化テキストに変換
-            content = "\n".join([f"{col}: {row[col]}" for col in df.columns])
-            
-            # ドキュメントとして登録
-            from langchain_core.documents import Document
-            doc = Document(
-                page_content=content,
-                metadata={
-                    "source": csv_path,
-                    "row": index,
-                    "type": "社員情報"
-                }
-            )
-            documents.append(doc)
-        
-        # ベクターストアに追加
-        vectorstore.add_documents(documents)
-        logging.getLogger(ct.LOGGER_NAME).info(f"CSVから{len(documents)}件のドキュメントを登録しました: {csv_path}")
-        
-    except Exception as e:
-        logging.getLogger(ct.LOGGER_NAME).error(f"CSVのベクターストア登録エラー: {e}")
+############################################################
+# 関数定義
+############################################################
+
+def build_error_message(message):
+    """
+    エラーメッセージと管理者問い合わせテンプレートの連結
+
+    Args:
+        message: 画面上に表示するエラーメッセージ
+
+    Returns:
+        エラーメッセージと管理者問い合わせテンプレートの連結テキスト
+    """
+    return "\n".join([message, ct.COMMON_ERROR_MESSAGE])
+
+
+def get_source_icon(file_path):
+    """
+    参照元のファイルパスに応じて、適切なアイコンを取得する
+
+    Args:
+        file_path: 参照元のファイルパス
+
+    Returns:
+        適切なアイコン
+    """
+    # URLの特徴を検出
+    if file_path.startswith("http") or file_path.startswith("www"):
+        return ct.LINK_SOURCE_ICON
+    else:
+        return ct.DOC_SOURCE_ICON
+
 
 def get_llm_response(chat_message):
     """
@@ -155,9 +154,27 @@ def get_llm_response(chat_message):
 
     return llm_response
 
-def build_error_message(message: str) -> str:
+
+def analyze_csv_structure(csv_path):
+    """CSVファイルの構造を分析し、重要なカラム名を特定する関数"""
+    try:
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            # 全カラム名とそのデータ型を返す例
+            return df.columns.tolist(), df.dtypes.to_dict()
+        else:
+            return None, None
+    except Exception as e:
+        logging.getLogger(ct.LOGGER_NAME).error(f"CSV構造分析エラー: {e}")
+        return None, None
+
+
+def check_files_for_updates():
     """
-    エラーメッセージを整形して返す関数です。
-    運用上必要な追加情報（例：タイムスタンプやエラーコード）を付加する拡張も可能です。
+    ファイルの更新を検知する関数
+    
+    Returns:
+        更新があったかどうかのブール値
     """
-    return f"エラーが発生しました: {message}"
+    # 本来はファイルの更新日時を比較するなど実装が必要だが、ここではサンプル実装
+    return False

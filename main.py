@@ -57,9 +57,6 @@ if not "initialized" in st.session_state:
 # タイトル表示
 cn.display_app_title()
 
-# モード表示（サイドバーに）
-cn.display_select_mode()
-
 # サイドバー表示
 cn.display_sidebar()
 
@@ -163,22 +160,6 @@ if chat_message:
             # AIメッセージのログ出力
             logger.info({"message": content, "application_mode": st.session_state.mode})
             
-            # ==========================================
-            # DEBUGログの表示（開発者モードON時のみ）
-            # ==========================================
-            if st.session_state.get("debug_mode", False):
-                with st.expander("DEBUGログ", expanded=True):
-                    st.markdown("### LLMレスポンス（生データ）")
-                    st.json(llm_response)
-                    
-                    st.markdown("### ログファイル内容")
-                    try:
-                        with open("logs/application.log", "r", encoding="utf-8") as f:
-                            log_content = f.read()
-                            st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-                    except FileNotFoundError:
-                        st.warning("ログファイルが見つかりませんでした。")
-                        
         except Exception as e:
             # エラーログの出力
             logger.error(f"{ct.DISP_ANSWER_ERROR_MESSAGE}\n{e}")
