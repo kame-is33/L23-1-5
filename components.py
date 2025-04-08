@@ -141,18 +141,19 @@ def display_conversation_log():
                             st.info(file_info, icon=icon)
 
 
-def display_search_llm_response(llm_response):
+def display_search_llm_response(llm_response, chat_message=None):
     """
     「社内文書検索」モードにおけるLLMレスポンスを表示
 
     Args:
         llm_response: LLMからの回答
+        chat_message: ユーザー入力値(オプション)
 
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードの場合、デバッグ情報を表示
-    display_debug_info(llm_response)
+    display_debug_info(llm_response, chat_message)
     
     # 以下は既存のコードを維持
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
@@ -256,18 +257,19 @@ def display_search_llm_response(llm_response):
     return content
 
 
-def display_contact_llm_response(llm_response):
+def display_contact_llm_response(llm_response, chat_message=None):
     """
     「社内問い合わせ」モードにおけるLLMレスポンスを表示
 
     Args:
         llm_response: LLMからの回答
+        chat_message: ユーザー入力値(オプション)
 
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードの場合、デバッグ情報を表示
-    display_debug_info(llm_response)
+    display_debug_info(llm_response, chat_message)
     
     # 社員情報クエリかどうかの確認（utils.pyの結果を保持）
     is_employee_query = any(keyword in llm_response.get("query", "") for keyword in ct.EMPLOYEE_KEYWORDS)
