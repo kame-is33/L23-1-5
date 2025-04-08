@@ -8,9 +8,6 @@
 import streamlit as st
 import utils
 import constants as ct
-import os
-import pandas as pd
-import logging
 
 
 ############################################################
@@ -23,24 +20,23 @@ def display_app_title():
     """
     st.markdown(f"## {ct.APP_NAME}")
 
+
 def display_sidebar():
     """
-    サイドバーの表示
+    サイドバーの表示 (新設)
     """
-    with st.sidebar:
-        st.markdown("### 利用目的")
-        st.session_state.mode = st.sidebar.radio(
+    # 回答モードのラジオボタンを表示
+    st.sidebar.markdown("### 利用目的")
+    st.session_state.mode = st.sidebar.radio(
         label="",
         options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
         label_visibility="collapsed"
-        )
-        
-        st.divider()
-
+    )
+    st.divider()
     # 「社内文書検索」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_SEARCH_TITLE)
     # 「st.info()」を使うと青枠で表示される
-    st.sidebar.info(ct.SIDEBAR_SEARCH_DESCRIPTION)
+    st.sidebar.markdown(ct.SIDEBAR_SEARCH_DESCRIPTION)
     # 「st.code()」を使うとコードブロックの装飾で表示される
     # 「wrap_lines=True」で折り返し設定、「language=None」で非装飾とする
     st.sidebar.markdown(ct.EXAMPLE_TITLE)
@@ -48,13 +44,13 @@ def display_sidebar():
 
     # 「社内問い合わせ」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
-    st.sidebar.info(ct.SIDEBAR_INQUIRY_DESCRIPTION)
+    st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
     st.sidebar.markdown(ct.EXAMPLE_TITLE)
     st.sidebar.code(ct.SIDEBAR_INQUIRY_EXAMPLE, wrap_lines=True, language=None)
 
     # 社員情報に関する説明
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_TITLE)
-    st.sidebar.info(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
+    st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
     st.sidebar.markdown(ct.EXAMPLE_TITLE)
     st.sidebar.code(ct.SIDEBAR_EMPLOYEE_EXAMPLE, wrap_lines=True, language=None)
 
@@ -65,7 +61,7 @@ def display_initial_ai_message():
     """
     with st.chat_message("assistant"):
         # 「st.success()」とすると緑枠で表示される
-        st.success("こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。サイドバーで利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。")
+        st.success("こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。上記で利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。")
         st.warning("具体的に入力したほうが期待通りの回答を得やすいです。", icon=ct.WARNING_ICON)
 
 
@@ -84,8 +80,8 @@ def display_conversation_log():
             
             # LLMからの回答の場合
             else:
-                pass
-            if message.get("content", {}).get("mode") == ct.ANSWER_MODE_1:
+                # 「社内文書検索」の場合、テキストの種類に応じて表示形式を分岐処理
+                if message["content"]["mode"] == ct.ANSWER_MODE_1:
                     
                     # ファイルのありかの情報が取得できた場合（通常時）の表示処理
                     if not "no_file_path_flg" in message["content"]:
@@ -115,7 +111,7 @@ def display_conversation_log():
                                 # 参照元のありかに応じて、適したアイコンを取得
                                 icon = utils.get_source_icon(sub_choice['source'])
                                 # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
-                                if "page_number" in sub_choice and sub_choice["page_number"]:
+                                if "page" in sub_choice:
                                     st.info(f"{sub_choice['source']}", icon=icon)
                                 else:
                                     st.info(f"{sub_choice['source']}", icon=icon)
@@ -123,38 +119,36 @@ def display_conversation_log():
                     else:
                         st.markdown(message["content"]["answer"])
                 
-            # 「社内問い合わせ」の場合の表示処理
-            else:
-                # LLMからの回答を表示
-                st.markdown(message["content"]["answer"])
+                # 「社内問い合わせ」の場合の表示処理
+                else:
+                    # LLMからの回答を表示
+                    st.markdown(message["content"]["answer"])
 
-                # 参照元のありかを一覧表示
-                if "file_info_list" in message["content"]:
-                    # 区切り線の表示
-                    st.divider()
-                    # 「情報源」の文字を太字で表示
-                    st.markdown(f"##### {message['content']['message']}")
-                    # ドキュメントのありかを一覧表示
-                    for file_info in message["content"]["file_info_list"]:
-                        # 参照元のありかに応じて、適したアイコンを取得
-                        icon = utils.get_source_icon(file_info)
-                        st.info(file_info, icon=icon)
+                    # 参照元のありかを一覧表示
+                    if "file_info_list" in message["content"]:
+                        # 区切り線の表示
+                        st.divider()
+                        # 「情報源」の文字を太字で表示
+                        st.markdown(f"##### {message['content']['message']}")
+                        # ドキュメントのありかを一覧表示
+                        for file_info in message["content"]["file_info_list"]:
+                            # 参照元のありかに応じて、適したアイコンを取得
+                            icon = utils.get_source_icon(file_info)
+                            st.info(file_info, icon=icon)
 
 
-def display_search_llm_response(llm_response, chat_message=None):
+def display_search_llm_response(llm_response):
     """
     「社内文書検索」モードにおけるLLMレスポンスを表示
 
     Args:
         llm_response: LLMからの回答
-        chat_message: ユーザー入力値(オプション)
 
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードの場合、デバッグ情報を表示
-    if llm_response and isinstance(llm_response, dict):
-        display_debug_info(llm_response, chat_message)
+    display_debug_info(llm_response)
     
     # 以下は既存のコードを維持
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
@@ -208,7 +202,6 @@ def display_search_llm_response(llm_response, chat_message=None):
             # サブドキュメントの表示情報を準備
             sub_file_info = sub_file_path
             # ページ番号が取得できた場合、ファイル情報に追加
-            page_number = None
             if "page" in document.metadata:
                 page_number = document.metadata["page"]
                 sub_file_info = f"{sub_file_path}（Page #{page_number}）"
@@ -220,7 +213,7 @@ def display_search_llm_response(llm_response, chat_message=None):
             # 後ほど一覧表示するため、サブドキュメントに関する情報を順次リストに追加
             sub_choices.append({
                 "source": sub_file_path,
-                "page_number": page_number
+                "page_number": page_number if "page" in document.metadata else None
             })
         
         # サブドキュメントが存在する場合のみの処理
@@ -258,24 +251,20 @@ def display_search_llm_response(llm_response, chat_message=None):
     return content
 
 
-def display_contact_llm_response(llm_response, chat_message=None):
+def display_contact_llm_response(llm_response):
     """
     「社内問い合わせ」モードにおけるLLMレスポンスを表示
 
     Args:
         llm_response: LLMからの回答
-        chat_message: ユーザー入力値(オプション)
 
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードの場合、デバッグ情報を表示
-    if llm_response and isinstance(llm_response, dict):
-        display_debug_info(llm_response, chat_message)
+    display_debug_info(llm_response)
     
-    # 社員情報クエリかどうかの確認（utils.pyの結果を保持）
-    is_employee_query = any(keyword in llm_response.get("query", "") for keyword in ct.EMPLOYEE_KEYWORDS)
-    
+    # 以下は既存のコード
     # LLMからの回答を表示
     st.markdown(llm_response["answer"])
     
@@ -283,11 +272,6 @@ def display_contact_llm_response(llm_response, chat_message=None):
     content = {}
     content["mode"] = ct.ANSWER_MODE_2
     content["answer"] = llm_response["answer"]
-    content["is_employee_query"] = is_employee_query
-    
-    # クエリ情報が含まれていれば保存
-    if "query" in llm_response:
-        content["query"] = llm_response["query"]
     
     # 参照元の文書情報がある場合は追加
     # 回答が「見つかりませんでした」でも、contextが存在すれば表示
@@ -345,102 +329,49 @@ def display_debug_info(llm_response, chat_message=None):
     """
     # 開発者モードがオンの場合のみ表示
     if st.session_state.get("debug_mode", False):
-        try:
-            with st.expander("🔍 DEBUG情報", expanded=True):
-                # 1. LLMレスポンス（生データ）
-                st.markdown("### LLMレスポンス（生データ）")
-                try:
-                    # llm_responseがNoneの場合や予期せぬ形式の場合に対応
-                    if not isinstance(llm_response, dict):
-                        st.warning(f"LLMレスポンスが辞書形式ではありません: {type(llm_response)}")
-                        debug_json = {"error": "レスポンス形式が不正です"}
-                    else:
-                        # 安全にデータを抽出
-                        context_data = []
-                        if "context" in llm_response and llm_response["context"]:
-                            for doc in llm_response["context"]:
-                                if hasattr(doc, "page_content"):
-                                    context_data.append(doc.page_content)
-                                else:
-                                    context_data.append(str(doc))
-                        
-                        debug_json = {
-                            "input": chat_message if chat_message else "不明",
-                            "chat_history": st.session_state.get("chat_history", []),
-                            "context": context_data,
-                            "answer": llm_response.get("answer", "")
-                        }
-                    
-                    st.json(debug_json)
-                except Exception as e:
-                    st.error(f"LLMレスポンスのJSONへの変換に失敗しました: {str(e)}")
+        with st.expander("🔍 DEBUG情報", expanded=True):
+            # 1. LLMレスポンス（生データ）
+            st.markdown("### LLMレスポンス（生データ）")
+            debug_json = {
+                "input": chat_message if chat_message else "不明",
+                "chat_history": st.session_state.get("chat_history", []),
+                "context": [d.page_content for d in llm_response.get("context", [])]
+                if "context" in llm_response else [],
+                "answer": llm_response.get("answer", "")
+            }
+            st.json(debug_json)
+            
+            # 2. ログファイル内容
+            st.markdown("### ログファイル内容")
+            try:
+                with open("logs/application.log", "r", encoding="utf-8") as f:
+                    log_content = f.read()
+                    # 最新の内容を表示（長すぎる場合は最後の部分のみ）
+                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
+            except Exception as e:
+                st.warning(f"ログファイルの読み込みに失敗しました: {e}")
+            
+            # 3. 生成された回答
+            st.markdown("### 生成された回答")
+            if "answer" in llm_response:
+                st.markdown(llm_response["answer"])
+            else:
+                st.info("回答が見つかりません")
+            
+            # 4. 情報源
+            st.markdown("### 情報源")
+            if "context" in llm_response and llm_response["context"]:
+                file_info = set()
+                for doc in llm_response["context"]:
+                    source = doc.metadata.get("source", "不明")
+                    page = doc.metadata.get("page", None)
+                    info = f"{source}"
+                    if page:
+                        info += f"（Page #{page}）"
+                    file_info.add(info)
                 
-                # 社員情報関連の質問の場合、CSVファイルの詳細情報を表示
-                try:
-                    input_str = chat_message if isinstance(chat_message, str) else ""
-                    if any(keyword in input_str for keyword in ct.EMPLOYEE_KEYWORDS):
-                        st.markdown("### 社員名簿CSVファイル情報")
-                        # 社員名簿CSVパスを取得
-                        employee_csv_path = st.session_state.get("employee_csv_path", None)
-                        if employee_csv_path and os.path.exists(employee_csv_path):
-                            df = pd.read_csv(employee_csv_path)
-                            st.write(f"総行数: {len(df)}")
-                            st.write(f"カラム名: {', '.join(df.columns)}")
-                            st.write("データサンプル:")
-                            st.dataframe(df.head(5))
-                        else:
-                            st.warning("社員名簿CSVファイルが見つかりません")
-                except Exception as e:
-                    st.warning(f"社員情報の処理に失敗しました: {str(e)}")
-                
-                # 2. ログファイル内容
-                st.markdown("### ログファイル内容")
-                try:
-                    log_path = os.path.join("logs", "application.log")
-                    if os.path.exists(log_path):
-                        with open(log_path, "r", encoding="utf-8") as f:
-                            log_content = f.read()
-                            # 最新の内容を表示（長すぎる場合は最後の部分のみ）
-                            st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-                    else:
-                        st.info("ログファイルがまだ作成されていません")
-                except Exception as e:
-                    st.warning(f"ログファイルの読み込みに失敗しました: {str(e)}")
-                
-                # 3. 生成された回答
-                st.markdown("### 生成された回答")
-                try:
-                    if "answer" in llm_response and llm_response["answer"]:
-                        st.markdown(llm_response["answer"])
-                    else:
-                        st.info("回答が見つかりません")
-                except Exception as e:
-                    st.warning(f"回答の表示に失敗しました: {str(e)}")
-                
-                # 4. 情報源
-                st.markdown("### 情報源")
-                try:
-                    if "context" in llm_response and llm_response["context"]:
-                        file_info = set()
-                        for doc in llm_response["context"]:
-                            if hasattr(doc, "metadata"):
-                                source = doc.metadata.get("source", "不明")
-                                page = doc.metadata.get("page", None)
-                                info = f"{source}"
-                                if page:
-                                    info += f"（Page #{page}）"
-                                file_info.add(info)
-                        
-                        if file_info:
-                            for info in sorted(list(file_info)):
-                                icon = utils.get_source_icon(info)
-                                st.info(info, icon=icon)
-                        else:
-                            st.info("情報源の詳細が取得できません")
-                    else:
-                        st.info("情報源なし")
-                except Exception as e:
-                    st.warning(f"情報源の表示に失敗しました: {str(e)}")
-        except Exception as e:
-            # デバッグ情報の表示全体でエラーが発生した場合
-            st.error(f"デバッグ情報の表示中にエラーが発生しました: {str(e)}")
+                for info in sorted(list(file_info)):
+                    icon = utils.get_source_icon(info)
+                    st.info(info, icon=icon)
+            else:
+                st.info("情報源なし")

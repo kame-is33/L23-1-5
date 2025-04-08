@@ -17,8 +17,8 @@ from langchain_community.document_loaders.csv_loader import CSVLoader
 # 画面表示系
 # ==========================================
 APP_NAME = "社内情報特化型生成AI検索アプリ"
-ANSWER_MODE_1 = "社内文書検索"  # ANSWER_MODE_1 = "社内文書検索" → SYSTEM_PROMPT_DOC_SEARCH に対応
-ANSWER_MODE_2 = "社内問い合わせ"  # ANSWER_MODE_2 = "社内問い合わせ" → SYSTEM_PROMPT_INQUIRY に対応
+ANSWER_MODE_1 = "社内文書検索"
+ANSWER_MODE_2 = "社内問い合わせ"
 CHAT_INPUT_HELPER_TEXT = "こちらからメッセージを送信してください。"
 DOC_SOURCE_ICON = ":material/description: "
 LINK_SOURCE_ICON = ":material/link: "
@@ -68,22 +68,22 @@ TEMPERATURE = 0.5
 # ==========================================
 RAG_TOP_FOLDER_PATH = "./data"
 SUPPORTED_EXTENSIONS = {
-    ".pdf": lambda path: PyMuPDFLoader(path),
-    ".docx": lambda path: Docx2txtLoader(path),
+    ".pdf": PyMuPDFLoader,
+    ".docx": Docx2txtLoader,
     ".csv": lambda path: CSVLoader(path, encoding="utf-8"),
-    ".txt": lambda path: TextLoader(path, encoding="utf-8")
+    ".txt": TextLoader  # TXTファイル対応を追加
 }
 WEB_URL_LOAD_TARGETS = [
     "https://generative-ai.web-camp.io/"
 ]
 
+
 # ==========================================
 # RAG設定系　追加
 # ==========================================
-RETRIEVER_DOCUMENT_COUNT_DEFAULT = 5   # 通常の検索結果として取得するドキュメント数
-RETRIEVER_DOCUMENT_COUNT_EMPLOYEE = 15  # 社員情報クエリ時の検索結果として取得するドキュメント数
-CHUNK_SIZE = 1000                 # チャンク分割サイズ（500から1000に増加）
-CHUNK_OVERLAP = 100               # チャンク分割時のオーバーラップサイズ（50から100に増加）
+RETRIEVER_DOCUMENT_COUNT = 5     # 検索結果として取得するドキュメント数
+CHUNK_SIZE = 500                 # チャンク分割サイズ
+CHUNK_OVERLAP = 50               # チャンク分割時のオーバーラップサイズ
 
 
 # ==========================================
@@ -98,9 +98,6 @@ SYSTEM_PROMPT_DOC_SEARCH = """
     【条件】
     1. ユーザー入力内容と以下の文脈との間に関連性がある場合、空文字「""」を返してください。
     2. ユーザー入力内容と以下の文脈との関連性が明らかに低い場合、「該当資料なし」と回答してください。
-
-    【ユーザーの質問】
-    {user_question}
 
     【文脈】
     {context}
@@ -119,32 +116,7 @@ SYSTEM_PROMPT_INQUIRY = """
     6. 複雑な質問の場合、各項目についてそれぞれ詳細に回答してください。
     7. 必要と判断した場合は、以下の文脈に基づかずとも、一般的な情報を回答してください。
 
-    【ユーザーの質問】
-    {user_question}
-
-    【文脈】
     {context}
-"""
-
-# 社員情報に特化したプロンプト（新規追加）
-SYSTEM_PROMPT_EMPLOYEE = """
-    あなたは社内の人事情報に特化したアシスタントです。
-    以下の社員名簿データを基に質問に回答してください。
-
-    【条件】
-    1. 以下の社員名簿データのみを使用して回答してください。
-    2. データは表形式です。適切に整形して回答してください。
-    3. 複数行のデータがある場合は、すべての行を考慮してください。
-    4. 部署や役職でフィルタリングする場合は、該当するすべての社員の情報を含めてください。
-    5. スキルセットや特性について質問された場合は、関連するすべての情報を表形式で整理して回答してください。
-    6. マークダウン記法を使って見やすく整形してください。
-    7. 回答には、どのデータを参照したかを明示してください。
-
-    【ユーザーの質問】
-    {user_question}
-
-    【社員名簿データ】
-    {employee_data}
 """
 
 
@@ -167,7 +139,6 @@ NO_DOC_MATCH_MESSAGE = """
 CONVERSATION_LOG_ERROR_MESSAGE = "過去の会話履歴の表示に失敗しました。"
 GET_LLM_RESPONSE_ERROR_MESSAGE = "回答生成に失敗しました。"
 DISP_ANSWER_ERROR_MESSAGE = "回答表示に失敗しました。"
-EMPLOYEE_DATA_ERROR_MESSAGE = "社員情報の処理中にエラーが発生しました。"
 
 
 # ==========================================
@@ -175,8 +146,3 @@ EMPLOYEE_DATA_ERROR_MESSAGE = "社員情報の処理中にエラーが発生し�
 # ==========================================
 FILE_UPDATE_MESSAGE = "データソースの更新を検知しました。最新の情報を反映します。"
 FILE_UPDATE_ICON = "ℹ️"
-
-# ==========================================
-# 社員情報処理用キーワード（新規追加）
-# ==========================================
-EMPLOYEE_KEYWORDS = ["人事", "従業員", "社員", "部署", "スキル", "名簿", "所属"]

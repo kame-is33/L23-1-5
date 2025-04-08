@@ -5,12 +5,16 @@
 ############################################################
 # 1. ライブラリの読み込み
 ############################################################
+import pandas as pd 
+# .env」ファイルから環境変数を読み込むための関数
+from dotenv import load_dotenv
 # ログ出力を行うためのモジュール
 import logging
 # streamlitアプリの表示を担当するモジュール
 import streamlit as st
 # （自作）画面表示以外の様々な関数が定義されているモジュール
 import utils
+from utils import check_files_for_updates, build_error_message
 # （自作）アプリ起動時に実行される初期化処理が記述された関数
 from initialize import initialize
 # （自作）画面表示系の関数が定義されているモジュール
@@ -19,7 +23,7 @@ import components as cn
 import constants as ct
 
 
-############################################################    
+############################################################
 # 2. 設定関連
 ############################################################
 # ブラウザタブの表示文言を設定
@@ -41,7 +45,7 @@ except Exception as e:
     # エラーログの出力
     logger.error(f"{ct.INITIALIZE_ERROR_MESSAGE}\n{e}")
     # エラーメッセージの画面表示
-    st.error(utils.build_error_message(ct.INITIALIZE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+    st.error(build_error_message(ct.INITIALIZE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
     # 後続の処理を中断
     st.stop()
 
@@ -56,6 +60,9 @@ if not "initialized" in st.session_state:
 ############################################################
 # タイトル表示
 cn.display_app_title()
+
+# モード表示（サイドバーに）
+cn.display_select_mode()
 
 # サイドバー表示
 cn.display_sidebar()
@@ -87,7 +94,7 @@ except Exception as e:
     # エラーログの出力
     logger.error(f"{ct.CONVERSATION_LOG_ERROR_MESSAGE}\n{e}")
     # エラーメッセージの画面表示
-    st.error(utils.build_error_message(ct.CONVERSATION_LOG_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+    st.error(build_error_message(ct.CONVERSATION_LOG_ERROR_MESSAGE), icon=ct.ERROR_ICON)
     # 後続の処理を中断
     st.stop()
 
@@ -102,17 +109,11 @@ chat_message = st.chat_input(ct.CHAT_INPUT_HELPER_TEXT)
 # 7. チャット送信時の処理
 ############################################################
 if chat_message:
-    # セッション変数の初期化（なければ）
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "mode" not in st.session_state:
-        st.session_state.mode = ct.ANSWER_MODE_1  # デフォルト値（必要に応じて変更）
-
     # ==========================================
     # 7-0. ファイル更新チェック　新設
     # ==========================================
     # ファイル更新チェック
-    files_updated = utils.check_files_for_updates()
+    files_updated = check_files_for_updates()
     if files_updated:
         st.info(ct.FILE_UPDATE_MESSAGE, icon=ct.FILE_UPDATE_ICON)
 
@@ -140,26 +141,54 @@ if chat_message:
             # エラーログの出力
             logger.error(f"{ct.GET_LLM_RESPONSE_ERROR_MESSAGE}\n{e}")
             # エラーメッセージの画面表示
-            st.error(utils.build_error_message(ct.GET_LLM_RESPONSE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+            st.error(build_error_message(ct.GET_LLM_RESPONSE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
             # 後続の処理を中断
             st.stop()
 
     # ==========================================
     # 7-3. LLMからの回答表示
     # ==========================================
-    logger.info("LLM応答の表示処理を開始")
     with st.chat_message("assistant"):
         try:
+            # ==========================================
+            # モードが「社内文書検索」の場合
+            # ==========================================
             if st.session_state.mode == ct.ANSWER_MODE_1:
-                logger.info("→ モード: 社内文書検索")
-                content = cn.display_search_llm_response(llm_response, chat_message)
+                # 入力内容と関連性が高い社内文書のありかを表示
+                content = cn.display_search_llm_response(llm_response)
+
+            # ==========================================
+            # モードが「社内問い合わせ」の場合
+            # ==========================================
             elif st.session_state.mode == ct.ANSWER_MODE_2:
-                logger.info("→ モード: 社内問い合わせ")
-                content = cn.display_contact_llm_response(llm_response, chat_message)
-            logger.info(f"→ content（AI応答）: {content}")
+                # 入力に対しての回答と、参照した文書のありかを表示
+                content = cn.display_contact_llm_response(llm_response)
+            
+            # AIメッセージのログ出力
+            logger.info({"message": content, "application_mode": st.session_state.mode})
+            
+            # ==========================================
+            # DEBUGログの表示（開発者モードON時のみ）
+            # ==========================================
+            if st.session_state.get("debug_mode", False):
+                with st.expander("DEBUGログ", expanded=True):
+                    st.markdown("### LLMレスポンス（生データ）")
+                    st.json(llm_response)
+                    
+                    st.markdown("### ログファイル内容")
+                    try:
+                        with open("logs/application.log", "r", encoding="utf-8") as f:
+                            log_content = f.read()
+                            st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
+                    except FileNotFoundError:
+                        st.warning("ログファイルが見つかりませんでした。")
+                        
         except Exception as e:
+            # エラーログの出力
             logger.error(f"{ct.DISP_ANSWER_ERROR_MESSAGE}\n{e}")
-            st.error(utils.build_error_message(ct.DISP_ANSWER_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+            # エラーメッセージの画面表示
+            st.error(build_error_message(ct.DISP_ANSWER_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+            # 後続の処理を中断
             st.stop()
 
     # ==========================================
@@ -169,9 +198,3 @@ if chat_message:
     st.session_state.messages.append({"role": "user", "content": chat_message})
     # 表示用の会話ログにAIメッセージを追加
     st.session_state.messages.append({"role": "assistant", "content": content})
-
-    # ==========================================
-    # 7-5. デバッグ情報の表示（開発者モード）
-    # ==========================================
-    if debug_mode:
-        cn.display_debug_info(llm_response, chat_message)
