@@ -123,22 +123,22 @@ def display_conversation_log():
                     else:
                         st.markdown(message["content"]["answer"])
                 
-                # 「社内問い合わせ」の場合の表示処理
-                else:
-                    # LLMからの回答を表示
-                    st.markdown(message["content"]["answer"])
+            # 「社内問い合わせ」の場合の表示処理
+            else:
+                # LLMからの回答を表示
+                st.markdown(message["content"]["answer"])
 
-                    # 参照元のありかを一覧表示
-                    if "file_info_list" in message["content"]:
-                        # 区切り線の表示
-                        st.divider()
-                        # 「情報源」の文字を太字で表示
-                        st.markdown(f"##### {message['content']['message']}")
-                        # ドキュメントのありかを一覧表示
-                        for file_info in message["content"]["file_info_list"]:
-                            # 参照元のありかに応じて、適したアイコンを取得
-                            icon = utils.get_source_icon(file_info)
-                            st.info(file_info, icon=icon)
+                # 参照元のありかを一覧表示
+                if "file_info_list" in message["content"]:
+                    # 区切り線の表示
+                    st.divider()
+                    # 「情報源」の文字を太字で表示
+                    st.markdown(f"##### {message['content']['message']}")
+                    # ドキュメントのありかを一覧表示
+                    for file_info in message["content"]["file_info_list"]:
+                        # 参照元のありかに応じて、適したアイコンを取得
+                        icon = utils.get_source_icon(file_info)
+                        st.info(file_info, icon=icon)
 
 
 def display_search_llm_response(llm_response, chat_message=None):
