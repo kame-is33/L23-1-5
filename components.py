@@ -20,20 +20,6 @@ def display_app_title():
     """
     st.markdown(f"## {ct.APP_NAME}")
 
-
-def display_select_mode():
-    """
-    回答モードのラジオボタンを表示
-    """
-    # サイドバーにラジオボタンを表示
-    st.sidebar.markdown("### 利用目的")
-    st.session_state.mode = st.sidebar.radio(
-        label="",
-        options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
-        label_visibility="collapsed"
-    )
-
-
 def display_sidebar():
     """
     サイドバーの表示
