@@ -136,31 +136,29 @@ def get_llm_response(chat_message):
         except Exception as e:
             logger.error(f"社員情報の処理中にエラーが発生しました: {e}")
             # エラーが発生した場合は通常の処理フローに戻る
-    
-list()
-                
-                # フォールバック回答の生成
-                fallback_answer = f"""
-                ### 社員情報検索結果
-                
-                社員名簿には以下の情報が含まれています：
-                
-                {', '.join(columns)}
-                
-                より具体的な質問をいただくと、詳細な情報を提供できます。
-                """
-                
-                llm_response["answer"] = fallback_answer
-                
-                # コンテキストに社員名簿の情報を追加
-                llm_response["context"] = [
-                    Document(
-                        page_content="社員名簿の概要情報",
-                        metadata={"source": ct.EMPLOYEE_CSV_PATH}
-                    )
-                ]
-                
-                logger.info("社員情報に関するフォールバック回答を生成しました。")
+            
+            # フォールバック回答の生成
+            fallback_answer = f"""
+            ### 社員情報検索結果
+            
+            社員名簿には以下の情報が含まれています：
+            
+            {', '.join(columns)}
+            
+            より具体的な質問をいただくと、詳細な情報を提供できます。
+            """
+            
+            llm_response["answer"] = fallback_answer
+            
+            # コンテキストに社員名簿の情報を追加
+            llm_response["context"] = [
+                Document(
+                    page_content="社員名簿の概要情報",
+                    metadata={"source": ct.EMPLOYEE_CSV_PATH}
+                )
+            ]
+            
+            logger.info("社員情報に関するフォールバック回答を生成しました。")
         except Exception as e:
             logger.error(f"社員情報のフォールバック処理中にエラーが発生しました: {e}")
 
