@@ -141,13 +141,16 @@ if chat_message:
     # ==========================================
     # 7-3. LLMからの回答表示
     # ==========================================
+    logger.info("LLM応答の表示処理を開始")
     with st.chat_message("assistant"):
         try:
             if st.session_state.mode == ct.ANSWER_MODE_1:
+                logger.info("→ モード: 社内文書検索")
                 content = cn.display_search_llm_response(llm_response, chat_message)
             elif st.session_state.mode == ct.ANSWER_MODE_2:
+                logger.info("→ モード: 社内問い合わせ")
                 content = cn.display_contact_llm_response(llm_response, chat_message)
-            logger.info({"message": content, "application_mode": st.session_state.mode})
+            logger.info(f"→ content（AI応答）: {content}")
         except Exception as e:
             logger.error(f"{ct.DISP_ANSWER_ERROR_MESSAGE}\n{e}")
             st.error(utils.build_error_message(ct.DISP_ANSWER_ERROR_MESSAGE), icon=ct.ERROR_ICON)
