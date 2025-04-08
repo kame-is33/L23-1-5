@@ -135,8 +135,10 @@ if chat_message:
     # 7-2. LLMからの回答取得
     # ==========================================
     # 回答生成中のメッセージを先に表示
-    with st.chat_message("assistant"):
-        st.markdown("回答生成中...")
+    answer_box = st.empty()
+    with answer_box.container():
+        with st.chat_message("assistant"):
+            st.markdown("回答生成中...")
     
     # 「st.spinner」でグルグル回っている間、表示の不具合が発生しないよう空のエリアを表示
     res_box = st.empty()
@@ -158,52 +160,53 @@ if chat_message:
     # ==========================================
     # 7-3. LLMからの回答表示
     # ==========================================
-    with st.chat_message("assistant"):
-        try:
-            # ==========================================
-            # モードが「社内文書検索」の場合
-            # ==========================================
-            if st.session_state.mode == ct.ANSWER_MODE_1:
-                # 入力内容と関連性が高い社内文書のありかを表示
-                content = cn.display_search_llm_response(llm_response)
+    with answer_box.container():
+        with st.chat_message("assistant"):
+            try:
+                # ==========================================
+                # モードが「社内文書検索」の場合
+                # ==========================================
+                if st.session_state.mode == ct.ANSWER_MODE_1:
+                    # 入力内容と関連性が高い社内文書のありかを表示
+                    content = cn.display_search_llm_response(llm_response)
 
-            # ==========================================
-            # モードが「社内問い合わせ」の場合
-            # ==========================================
-            elif st.session_state.mode == ct.ANSWER_MODE_2:
-                # 入力に対しての回答と、参照した文書のありかを表示
-                content = cn.display_contact_llm_response(llm_response)
-            
-            # AIメッセージのログ出力
-            logger.info({"message": content, "application_mode": st.session_state.mode})
+                # ==========================================
+                # モードが「社内問い合わせ」の場合
+                # ==========================================
+                elif st.session_state.mode == ct.ANSWER_MODE_2:
+                    # 入力に対しての回答と、参照した文書のありかを表示
+                    content = cn.display_contact_llm_response(llm_response)
+                
+                # AIメッセージのログ出力
+                logger.info({"message": content, "application_mode": st.session_state.mode})
 
-            # 追加: 空の回答に対するフォールバックメッセージ
-            if not content:
-                content = "申し訳ありませんが、回答を生成できませんでした。"
-            
-            # ==========================================
-            # DEBUGログの表示（開発者モードON時のみ）
-            # ==========================================
-            if st.session_state.get("debug_mode", False):
-                with st.expander("DEBUGログ", expanded=True):
-                    st.markdown("### LLMレスポンス（生データ）")
-                    st.json(llm_response)
-                    
-                    st.markdown("### ログファイル内容")
-                    try:
-                        with open("logs/application.log", "r", encoding="utf-8") as f:
-                            log_content = f.read()
-                            st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-                    except FileNotFoundError:
-                        st.warning("ログファイルが見つかりませんでした。")
+                # 追加: 空の回答に対するフォールバックメッセージ
+                if not content:
+                    content = "申し訳ありませんが、回答を生成できませんでした。"
+                
+                # ==========================================
+                # DEBUGログの表示（開発者モードON時のみ）
+                # ==========================================
+                if st.session_state.get("debug_mode", False):
+                    with st.expander("DEBUGログ", expanded=True):
+                        st.markdown("### LLMレスポンス（生データ）")
+                        st.json(llm_response)
                         
-        except Exception as e:
-            # エラーログの出力
-            logger.error(f"{ct.DISP_ANSWER_ERROR_MESSAGE}\n{e}")
-            # エラーメッセージの画面表示
-            st.error(build_error_message(ct.DISP_ANSWER_ERROR_MESSAGE), icon=ct.ERROR_ICON)
-            # 後続の処理を中断
-            st.stop()
+                        st.markdown("### ログファイル内容")
+                        try:
+                            with open("logs/application.log", "r", encoding="utf-8") as f:
+                                log_content = f.read()
+                                st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
+                        except FileNotFoundError:
+                            st.warning("ログファイルが見つかりませんでした。")
+                            
+            except Exception as e:
+                # エラーログの出力
+                logger.error(f"{ct.DISP_ANSWER_ERROR_MESSAGE}\n{e}")
+                # エラーメッセージの画面表示
+                st.error(build_error_message(ct.DISP_ANSWER_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+                # 後続の処理を中断
+                st.stop()
 
     # ==========================================
     # 7-4. 会話ログへの追加
