@@ -178,8 +178,8 @@ def get_llm_response(chat_message):
 
     # LLMから回答を取得する用のChainを作成
     question_answer_chain = create_stuff_documents_chain(llm, question_answer_prompt)
-    # 「RAG x 会話履歴の記憶機能」を実現するためのChainを作成
-    chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+    # 通常のretrieverを使用
+    chain = create_retrieval_chain(st.session_state.retriever, question_answer_chain)
 
     # LLMへのリクエストとレスポンス取得
     llm_response = chain.invoke({
