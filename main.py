@@ -61,9 +61,6 @@ if not "initialized" in st.session_state:
 # タイトル表示
 cn.display_app_title()
 
-# モード表示（サイドバーに）
-cn.display_select_mode()
-
 # サイドバー表示
 cn.display_sidebar()
 
