@@ -68,10 +68,10 @@ TEMPERATURE = 0.5
 # ==========================================
 RAG_TOP_FOLDER_PATH = "./data"
 SUPPORTED_EXTENSIONS = {
-    ".pdf": PyMuPDFLoader,
-    ".docx": Docx2txtLoader,
+    ".pdf": lambda path: PyMuPDFLoader(path),
+    ".docx": lambda path: Docx2txtLoader(path),
     ".csv": lambda path: CSVLoader(path, encoding="utf-8"),
-    ".txt": TextLoader  # TXTファイル対応を追加
+    ".txt": lambda path: TextLoader(path, encoding="utf-8")
 }
 WEB_URL_LOAD_TARGETS = [
     "https://generative-ai.web-camp.io/"
