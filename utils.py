@@ -183,3 +183,21 @@ def get_llm_response(chat_message):
     st.session_state.chat_history.extend([HumanMessage(content=chat_message), llm_response["answer"]])
 
     return llm_response
+
+def get_source_icon(filename: str) -> str:
+    """
+    ファイル拡張子に応じた Material アイコンを返す。
+    現時点ではすべて同一のアイコン（:material/description:）を返すが、
+    拡張子に応じて異なるアイコンを割り当てられるよう構造を維持している。
+📌 解説
+	•	:material/picture_as_pdf: → PDF アイコン
+	•	:material/article: → Word ドキュメントに近いアイコン
+	•	:material/grid_on: → 表形式データ（CSV/Excel）
+	•	:material/notes: → テキストファイル
+	•	:material/insert_drive_file: → その他の一般的ファイル
+    """
+    # 今後の拡張に備えた分岐構造（現在は全て同じアイコン）
+    if filename.endswith((".pdf", ".docx", ".doc", ".xlsx", ".csv", ".txt")):
+        return ":material/description:"
+    else:
+        return ":material/description:"
