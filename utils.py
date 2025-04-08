@@ -137,7 +137,7 @@ def get_llm_response(chat_message):
         [
             ("system", question_generator_template),
             MessagesPlaceholder("chat_history"),
-            ("human", "{user_input}")
+            ("human", "{input}")
         ]
     )
 
@@ -166,7 +166,7 @@ def get_llm_response(chat_message):
     # Retrieverを使って文脈情報を取得
     retrieved_docs = history_aware_retriever.invoke({
         "chat_history": st.session_state.chat_history,
-        "user_input": chat_message
+        "input": chat_message
     })
 
     # LLMから回答を取得する用のChainを作成
