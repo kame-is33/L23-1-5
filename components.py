@@ -85,7 +85,7 @@ def display_conversation_log():
             # LLMからの回答の場合
             else:
                 # 「社内文書検索」の場合、テキストの種類に応じて表示形式を分岐処理
-                if message["content"]["mode"] == ct.ANSWER_MODE_1:
+            if message.get("content", {}).get("mode") == ct.ANSWER_MODE_1:
                     
                     # ファイルのありかの情報が取得できた場合（通常時）の表示処理
                     if not "no_file_path_flg" in message["content"]:
@@ -153,7 +153,8 @@ def display_search_llm_response(llm_response, chat_message=None):
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードの場合、デバッグ情報を表示
-    display_debug_info(llm_response, chat_message)
+    if llm_response and isinstance(llm_response, dict):
+        display_debug_info(llm_response, chat_message)
     
     # 以下は既存のコードを維持
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
@@ -269,7 +270,8 @@ def display_contact_llm_response(llm_response, chat_message=None):
         LLMからの回答を画面表示用に整形した辞書データ
     """
     # 開発者モードの場合、デバッグ情報を表示
-    display_debug_info(llm_response, chat_message)
+    if llm_response and isinstance(llm_response, dict):
+        display_debug_info(llm_response, chat_message)
     
     # 社員情報クエリかどうかの確認（utils.pyの結果を保持）
     is_employee_query = any(keyword in llm_response.get("query", "") for keyword in ct.EMPLOYEE_KEYWORDS)

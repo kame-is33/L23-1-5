@@ -143,24 +143,60 @@ def get_llm_response(chat_message):
             
             社員名簿には以下の情報が含まれています：
             
-            {', '.join(columns)}
+            {', '.join(columns_info["columns"])}
             
             より具体的な質問をいただくと、詳細な情報を提供できます。
             """
             
-            llm_response["answer"] = fallback_answer
-            
-            # コンテキストに社員名簿の情報を追加
-            llm_response["context"] = [
-                Document(
-                    page_content="社員名簿の概要情報",
-                    metadata={"source": ct.EMPLOYEE_CSV_PATH}
-                )
-            ]
+            llm_response = {
+                "answer": fallback_answer,
+                "context": [
+                    Document(
+                        page_content="社員名簿の概要情報",
+                        metadata={"source": ct.EMPLOYEE_CSV_PATH}
+                    )
+                ]
+            }
             
             logger.info("社員情報に関するフォールバック回答を生成しました。")
+            return llm_response
         except Exception as e:
             logger.error(f"社員情報のフォールバック処理中にエラーが発生しました: {e}")
+
+    if not is_employee_query:
+        try:
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", ct.SYSTEM_PROMPT_DEFAULT),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}")
+            ])
+
+            chain = create_retrieval_chain(
+                retriever=retriever,
+                combine_docs_chain=create_stuff_documents_chain(llm, prompt)
+            )
+
+            response = chain.invoke({
+                "input": chat_message,
+                "chat_history": st.session_state.chat_history
+            })
+
+            llm_response = {
+                "answer": response["answer"],
+                "context": response.get("context", [])
+            }
+
+            st.session_state.chat_history.extend([
+                HumanMessage(content=chat_message),
+                HumanMessage(content=response["answer"])
+            ])
+
+            logger.info("通常ルートで回答を生成しました。")
+            return llm_response
+
+        except Exception as e:
+            logger.error(f"通常ルートでの回答生成に失敗しました: {e}")
+            raise e
 
     # LLMレスポンスを会話履歴に追加
     st.session_state.chat_history.extend([

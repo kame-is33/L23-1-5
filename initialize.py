@@ -146,7 +146,11 @@ def initialize_retriever():
     all_processed_docs = splitted_other_docs + processed_csv_docs
     
     # ベクターストアの作成
-    db = Chroma.from_documents(all_processed_docs, embedding=embeddings)
+    db = Chroma.from_documents(
+        documents=all_processed_docs,
+        embedding=embeddings,
+        persist_directory=".chroma"
+    )
     
     # セッション変数にベクターストアを保存
     st.session_state.vectorstore = db
