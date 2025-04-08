@@ -84,6 +84,7 @@ def display_conversation_log():
             
             # LLMからの回答の場合
             else:
+                pass
                 # 「社内文書検索」の場合、テキストの種類に応じて表示形式を分岐処理
             if message.get("content", {}).get("mode") == ct.ANSWER_MODE_1:
                     
