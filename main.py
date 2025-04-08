@@ -106,6 +106,8 @@ chat_message = st.chat_input(ct.CHAT_INPUT_HELPER_TEXT)
 # 7. チャット送信時の処理
 ############################################################
 if chat_message:
+    content = ""  # 追加: contentを初期化
+
     # ==========================================
     # 7-0. ファイル更新チェック　新設
     # ==========================================
@@ -139,6 +141,8 @@ if chat_message:
         try:
             # 画面読み込み時に作成したRetrieverを使い、Chainを実行
             llm_response = utils.get_llm_response(chat_message)
+            if "answer" not in llm_response:  # 追加: エラーチェック
+                raise ValueError("LLMの回答が取得できませんでした。")
         except Exception as e:
             # エラーログの出力
             logger.error(f"{ct.GET_LLM_RESPONSE_ERROR_MESSAGE}\n{e}")
@@ -168,6 +172,10 @@ if chat_message:
             
             # AIメッセージのログ出力
             logger.info({"message": content, "application_mode": st.session_state.mode})
+
+            # 追加: 空の回答に対するフォールバックメッセージ
+            if not content:
+                content = "申し訳ありませんが、回答を生成できませんでした。"
             
             # ==========================================
             # DEBUGログの表示（開発者モードON時のみ）

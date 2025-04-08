@@ -217,6 +217,11 @@ def file_load(path, docs_all):
         loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
         docs = loader.load()
         docs_all.extend(docs)
+    elif file_extension == ".docx":
+        text = extract_docx_text(path)
+        from langchain.schema import Document as LangchainDoc
+        doc = LangchainDoc(page_content=text, metadata={"source": path})
+        docs_all.append(doc)
 
 
 def adjust_string(s):
@@ -241,3 +246,21 @@ def adjust_string(s):
     
     # OSがWindows以外の場合はそのまま返す
     return s
+
+def extract_docx_text(path):
+    """
+    Word文書（.docx）から段落・見出しを抽出して結合したテキストを返す
+
+    Args:
+        path: 読み込むdocxファイルのパス
+
+    Returns:
+        str: 結合されたテキスト
+    """
+    doc = Document(path)
+    paragraphs = []
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text:
+            paragraphs.append(text)
+    return "\n".join(paragraphs)

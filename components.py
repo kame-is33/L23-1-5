@@ -91,13 +91,21 @@ def display_conversation_log():
                         # 補足文の表示
                         st.markdown(message["content"]["main_message"])
 
-                        # 参照元のありかに応じて、適したアイコンを取得
-                        icon = utils.get_source_icon(message['content']['main_file_path'])
+                        # メインドキュメントの表示
+                        with st.container():
+                            st.markdown("##### 情報源")
+                            st.markdown(message["content"]["main_message"])
+                            st.markdown("")
+                            st.markdown(
+                                f"{utils.get_source_icon(message['content']['main_file_path'])} {message['content']['main_file_path']}",
+                                unsafe_allow_html=True
+                            )
+
                         # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
                         if "main_page_number" in message["content"]:
-                            st.success(f"{message['content']['main_file_path']}", icon=icon)
+                            st.success(f"{message['content']['main_file_path']}", icon=utils.get_source_icon(message['content']['main_file_path']))
                         else:
-                            st.success(f"{message['content']['main_file_path']}", icon=icon)
+                            st.success(f"{message['content']['main_file_path']}", icon=utils.get_source_icon(message['content']['main_file_path']))
                         
                         # ==========================================
                         # ユーザー入力値と関連性が高いサブドキュメントのありかを表示
@@ -105,16 +113,15 @@ def display_conversation_log():
                         if "sub_message" in message["content"]:
                             # 補足メッセージの表示
                             st.markdown(message["content"]["sub_message"])
+                            st.markdown("##### 関連資料")
 
                             # サブドキュメントのありかを一覧表示
-                            for sub_choice in message["content"]["sub_choices"]:
-                                # 参照元のありかに応じて、適したアイコンを取得
-                                icon = utils.get_source_icon(sub_choice['source'])
-                                # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
-                                if "page" in sub_choice:
-                                    st.info(f"{sub_choice['source']}", icon=icon)
-                                else:
-                                    st.info(f"{sub_choice['source']}", icon=icon)
+                            for sub in message["content"]["sub_choices"]:
+                                sub_text = f"{sub['source']}"
+                                if sub["page_number"]:
+                                    sub_text += f"（ページNo.{sub['page_number']}）"
+                                icon = utils.get_source_icon(sub['source'])
+                                st.info(sub_text, icon=icon)
                     # ファイルのありかの情報が取得できなかった場合、LLMからの回答のみ表示
                     else:
                         st.markdown(message["content"]["answer"])
@@ -218,8 +225,8 @@ def display_search_llm_response(llm_response):
         
         # サブドキュメントが存在する場合のみの処理
         if sub_choices:
-            # 補足メッセージの表示
-            sub_message = "その他、ファイルありかの候補を提示します。"
+            sub_message = "その他、参考になりそうな資料はこちらです。"
+            st.markdown("##### 関連資料")
             st.markdown(sub_message)
 
         # 表示用の会話ログに格納するためのデータを用意
