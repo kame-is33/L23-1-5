@@ -6,6 +6,7 @@
 # ライブラリの読み込み
 ############################################################
 import streamlit as st
+import logging
 import utils
 import constants as ct
 
@@ -23,7 +24,7 @@ def display_app_title():
 
 def display_sidebar():
     """
-    サイドバーの表示 (新設)
+    サイドバーの表示
     """
     # 回答モードのラジオボタンを表示
     st.sidebar.markdown("### 利用目的")
@@ -32,27 +33,22 @@ def display_sidebar():
         options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
         label_visibility="collapsed"
     )
-    st.divider()
+    st.sidebar.divider()
+    
     # 「社内文書検索」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_SEARCH_TITLE)
-    # 「st.info()」を使うと青枠で表示される
-    st.sidebar.markdown(ct.SIDEBAR_SEARCH_DESCRIPTION)
-    # 「st.code()」を使うとコードブロックの装飾で表示される
-    # 「wrap_lines=True」で折り返し設定、「language=None」で非装飾とする
-    st.sidebar.markdown(ct.EXAMPLE_TITLE)
-    st.sidebar.code(ct.SIDEBAR_SEARCH_EXAMPLE, wrap_lines=True, language=None)
+    st.sidebar.info(ct.SIDEBAR_SEARCH_DESCRIPTION)
+    st.sidebar.code(f"{ct.EXAMPLE_TITLE}\n{ct.SIDEBAR_SEARCH_EXAMPLE}", wrap_lines=True, language=None)
 
     # 「社内問い合わせ」の機能説明
     st.sidebar.markdown(ct.SIDEBAR_INQUIRY_TITLE)
-    st.sidebar.markdown(ct.SIDEBAR_INQUIRY_DESCRIPTION)
-    st.sidebar.markdown(ct.EXAMPLE_TITLE)
-    st.sidebar.code(ct.SIDEBAR_INQUIRY_EXAMPLE, wrap_lines=True, language=None)
+    st.sidebar.info(ct.SIDEBAR_INQUIRY_DESCRIPTION)
+    st.sidebar.code(f"{ct.EXAMPLE_TITLE}\n{ct.SIDEBAR_INQUIRY_EXAMPLE}", wrap_lines=True, language=None)
 
     # 社員情報に関する説明
     st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_TITLE)
-    st.sidebar.markdown(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
-    st.sidebar.markdown(ct.EXAMPLE_TITLE)
-    st.sidebar.code(ct.SIDEBAR_EMPLOYEE_EXAMPLE, wrap_lines=True, language=None)
+    st.sidebar.info(ct.SIDEBAR_EMPLOYEE_DESCRIPTION)
+    st.sidebar.code(f"{ct.EXAMPLE_TITLE}\n{ct.SIDEBAR_EMPLOYEE_EXAMPLE}", wrap_lines=True, language=None)
 
 
 def display_initial_ai_message():
@@ -61,7 +57,7 @@ def display_initial_ai_message():
     """
     with st.chat_message("assistant"):
         # 「st.success()」とすると緑枠で表示される
-        st.success("こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。上記で利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。")
+        st.success("こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。サイドバーで利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。")
         st.warning("具体的に入力したほうが期待通りの回答を得やすいです。", icon=ct.WARNING_ICON)
 
 
@@ -91,35 +87,26 @@ def display_conversation_log():
                         # 補足文の表示
                         st.markdown(message["content"]["main_message"])
 
-                        # メインドキュメントの表示
-                        with st.container():
-                            st.markdown("##### 情報源")
-                            st.markdown(message["content"]["main_message"])
-                            st.markdown("")
-                            st.markdown(
-                                f"{utils.get_source_icon(message['content']['main_file_path'])} {message['content']['main_file_path']}",
-                                unsafe_allow_html=True
-                            )
-
-                        # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
+                        # メインドキュメントのアイコンと情報を表示
+                        icon = utils.get_source_icon(message['content']['main_file_path'])
+                        main_info = message['content']['main_file_path']
                         if "main_page_number" in message["content"]:
-                            st.success(f"{message['content']['main_file_path']}", icon=utils.get_source_icon(message['content']['main_file_path']))
-                        else:
-                            st.success(f"{message['content']['main_file_path']}", icon=utils.get_source_icon(message['content']['main_file_path']))
+                            main_info += f"（Page #{message['content']['main_page_number']}）"
+                        st.success(main_info, icon=icon)
                         
                         # ==========================================
                         # ユーザー入力値と関連性が高いサブドキュメントのありかを表示
                         # ==========================================
-                        if "sub_message" in message["content"]:
+                        if "sub_message" in message["content"] and "sub_choices" in message["content"]:
                             # 補足メッセージの表示
-                            st.markdown(message["content"]["sub_message"])
                             st.markdown("##### 関連資料")
+                            st.markdown(message["content"]["sub_message"])
 
                             # サブドキュメントのありかを一覧表示
                             for sub in message["content"]["sub_choices"]:
-                                sub_text = f"{sub['source']}"
-                                if sub["page_number"]:
-                                    sub_text += f"（ページNo.{sub['page_number']}）"
+                                sub_text = sub['source']
+                                if sub.get("page_number"):
+                                    sub_text += f"（Page #{sub['page_number']}）"
                                 icon = utils.get_source_icon(sub['source'])
                                 st.info(sub_text, icon=icon)
                     # ファイルのありかの情報が取得できなかった場合、LLMからの回答のみ表示
@@ -154,95 +141,117 @@ def display_search_llm_response(llm_response):
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
-    # 開発者モードの場合、デバッグ情報を表示
-    display_debug_info(llm_response)
+    logger = logging.getLogger(ct.LOGGER_NAME)
     
-    # 以下は既存のコードを維持
+    # 開発者モードの場合、デバッグ情報を表示
+    if st.session_state.get("debug_mode", False):
+        display_safe_debug_info(llm_response)
+    
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
-    if llm_response["context"] and llm_response["answer"] != ct.NO_DOC_MATCH_ANSWER:
-        # ==========================================
-        # ユーザー入力値と最も関連性が高いメインドキュメントのありかを表示
-        # ==========================================
-        # LLMからのレスポンス（辞書）の「context」属性の中の「0」に、最も関連性が高いドキュメント情報が入っている
-        main_file_path = llm_response["context"][0].metadata["source"]
+    if "context" in llm_response and llm_response["context"] and llm_response["answer"] != ct.NO_DOC_MATCH_ANSWER:
+        try:
+            # ==========================================
+            # ユーザー入力値と最も関連性が高いメインドキュメントのありかを表示
+            # ==========================================
+            # LLMからのレスポンス（辞書）の「context」属性の中の「0」に、最も関連性が高いドキュメント情報が入っている
+            main_file_path = llm_response["context"][0].metadata["source"]
 
-        # 補足メッセージの表示
-        main_message = "入力内容に関する情報は、以下のファイルに含まれている可能性があります。"
-        st.markdown(main_message)
-        
-        # メインドキュメントの表示情報を準備
-        main_file_info = main_file_path
-        # ページ番号が取得できた場合、ファイル情報に追加
-        if "page" in llm_response["context"][0].metadata:
-            main_page_number = llm_response["context"][0].metadata["page"]
-            main_file_info = f"{main_file_path}（Page #{main_page_number}）"
-        
-        # メインドキュメントのアイコンを取得
-        icon = utils.get_source_icon(main_file_path)
-        st.success(main_file_info, icon=icon)
-
-        # ==========================================
-        # ユーザー入力値と関連性が高いサブドキュメントのありかを表示
-        # ==========================================
-        # メインドキュメント以外で、関連性が高いサブドキュメントを格納する用のリストを用意
-        sub_choices = []
-        # 重複チェック用のリストを用意
-        duplicate_check_list = []
-
-        # ドキュメントが2件以上検索できた場合（サブドキュメントが存在する場合）のみ、サブドキュメントのありかを一覧表示
-        # 「source_documents」内のリストの2番目以降をスライスで参照（2番目以降がなければfor文内の処理は実行されない）
-        for document in llm_response["context"][1:]:
-            # ドキュメントのファイルパスを取得
-            sub_file_path = document.metadata["source"]
-
-            # メインドキュメントのファイルパスと重複している場合、処理をスキップ（表示しない）
-            if sub_file_path == main_file_path:
-                continue
+            # 補足メッセージの表示
+            main_message = "入力内容に関する情報は、以下のファイルに含まれている可能性があります。"
+            st.markdown(main_message)
             
-            # 同じファイル内の異なる箇所を参照した場合、2件目以降のファイルパスに重複が発生する可能性があるため、重複を除去
-            if sub_file_path in duplicate_check_list:
-                continue
-
-            # 重複チェック用のリストにファイルパスを順次追加
-            duplicate_check_list.append(sub_file_path)
+            # メインドキュメントの表示情報を準備
+            main_file_info = main_file_path
+            main_page_number = None
             
-            # サブドキュメントの表示情報を準備
-            sub_file_info = sub_file_path
             # ページ番号が取得できた場合、ファイル情報に追加
-            if "page" in document.metadata:
-                page_number = document.metadata["page"]
-                sub_file_info = f"{sub_file_path}（Page #{page_number}）"
+            if "page" in llm_response["context"][0].metadata:
+                main_page_number = llm_response["context"][0].metadata["page"]
+                main_file_info = f"{main_file_path}（Page #{main_page_number}）"
             
-            # 参照元のありかに応じて、適したアイコンを取得
-            icon = utils.get_source_icon(sub_file_path)
-            st.info(sub_file_info, icon=icon)
-            
-            # 後ほど一覧表示するため、サブドキュメントに関する情報を順次リストに追加
-            sub_choices.append({
-                "source": sub_file_path,
-                "page_number": page_number if "page" in document.metadata else None
-            })
-        
-        # サブドキュメントが存在する場合のみの処理
-        if sub_choices:
-            sub_message = "その他、参考になりそうな資料はこちらです。"
-            st.markdown("##### 関連資料")
-            st.markdown(sub_message)
+            # メインドキュメントのアイコンを取得
+            icon = utils.get_source_icon(main_file_path)
+            st.success(main_file_info, icon=icon)
 
-        # 表示用の会話ログに格納するためのデータを用意
-        content = {}
-        content["mode"] = ct.ANSWER_MODE_1
-        content["main_message"] = main_message
-        content["main_file_path"] = main_file_path
-        
-        # メインドキュメントのページ番号は、取得できた場合にのみ追加
-        if "page" in llm_response["context"][0].metadata:
-            content["main_page_number"] = main_page_number
-        
-        # サブドキュメントの情報は、取得できた場合にのみ追加
-        if sub_choices:
-            content["sub_message"] = sub_message
-            content["sub_choices"] = sub_choices
+            # ==========================================
+            # ユーザー入力値と関連性が高いサブドキュメントのありかを表示
+            # ==========================================
+            # メインドキュメント以外で、関連性が高いサブドキュメントを格納する用のリスト
+            sub_choices = []
+            # 重複チェック用のリスト
+            duplicate_check_list = []
+
+            # ドキュメントが2件以上検索できた場合（サブドキュメントが存在する場合）のみ、サブドキュメントのありかを一覧表示
+            if len(llm_response["context"]) > 1:
+                for document in llm_response["context"][1:]:
+                    # ドキュメントのファイルパスを取得
+                    sub_file_path = document.metadata["source"]
+
+                    # メインドキュメントのファイルパスと重複している場合、処理をスキップ（表示しない）
+                    if sub_file_path == main_file_path:
+                        continue
+                    
+                    # 同じファイル内の異なる箇所を参照した場合、2件目以降のファイルパスに重複が発生する可能性があるため、重複を除去
+                    if sub_file_path in duplicate_check_list:
+                        continue
+
+                    # 重複チェック用のリストにファイルパスを順次追加
+                    duplicate_check_list.append(sub_file_path)
+                    
+                    # サブドキュメントの表示情報を準備
+                    page_number = None
+                    # ページ番号が取得できた場合のみ追加
+                    if "page" in document.metadata:
+                        page_number = document.metadata["page"]
+                    
+                    # 後ほど一覧表示するため、サブドキュメントに関する情報を順次リストに追加
+                    sub_choices.append({
+                        "source": sub_file_path,
+                        "page_number": page_number
+                    })
+            
+            # サブドキュメントが存在する場合のみの処理
+            sub_message = None
+            if sub_choices:
+                st.markdown("##### 関連資料")
+                sub_message = "その他、参考になりそうな資料はこちらです。"
+                st.markdown(sub_message)
+
+                # サブドキュメントに対してのループ処理
+                for sub_choice in sub_choices:
+                    sub_info = sub_choice['source']
+                    if sub_choice['page_number']:
+                        sub_info += f"（Page #{sub_choice['page_number']}）"
+                    
+                    # 参照元のアイコンを取得して表示
+                    icon = utils.get_source_icon(sub_choice['source'])
+                    st.info(sub_info, icon=icon)
+
+            # 表示用の会話ログに格納するためのデータを用意
+            content = {}
+            content["mode"] = ct.ANSWER_MODE_1
+            content["main_message"] = main_message
+            content["main_file_path"] = main_file_path
+            
+            # メインドキュメントのページ番号は、取得できた場合にのみ追加
+            if main_page_number:
+                content["main_page_number"] = main_page_number
+            
+            # サブドキュメントの情報は、取得できた場合にのみ追加
+            if sub_choices:
+                content["sub_message"] = sub_message
+                content["sub_choices"] = sub_choices
+            
+            return content
+            
+        except Exception as e:
+            logger.error(f"検索モード応答表示エラー: {e}")
+            st.markdown(ct.NO_DOC_MATCH_MESSAGE)
+            return {
+                "mode": ct.ANSWER_MODE_1,
+                "answer": ct.NO_DOC_MATCH_MESSAGE,
+                "no_file_path_flg": True
+            }
     
     # LLMからのレスポンスに、ユーザー入力値と関連性の高いドキュメント情報が入って「いない」場合
     else:
@@ -250,12 +259,11 @@ def display_search_llm_response(llm_response):
         st.markdown(ct.NO_DOC_MATCH_MESSAGE)
 
         # 表示用の会話ログに格納するためのデータを用意
-        content = {}
-        content["mode"] = ct.ANSWER_MODE_1
-        content["answer"] = ct.NO_DOC_MATCH_MESSAGE
-        content["no_file_path_flg"] = True
-    
-    return content
+        return {
+            "mode": ct.ANSWER_MODE_1,
+            "answer": ct.NO_DOC_MATCH_MESSAGE,
+            "no_file_path_flg": True
+        }
 
 
 def display_contact_llm_response(llm_response):
@@ -268,117 +276,101 @@ def display_contact_llm_response(llm_response):
     Returns:
         LLMからの回答を画面表示用に整形した辞書データ
     """
+    logger = logging.getLogger(ct.LOGGER_NAME)
+    
     # 開発者モードの場合、デバッグ情報を表示
-    display_debug_info(llm_response)
+    if st.session_state.get("debug_mode", False):
+        display_safe_debug_info(llm_response)
     
-    # 以下は既存のコード
-    # LLMからの回答を表示
-    st.markdown(llm_response["answer"])
-    
-    # 表示用の会話ログに格納するためのデータを用意
-    content = {}
-    content["mode"] = ct.ANSWER_MODE_2
-    content["answer"] = llm_response["answer"]
-    
-    # 参照元の文書情報がある場合は追加
-    # 回答が「見つかりませんでした」でも、contextが存在すれば表示
-    if "context" in llm_response and llm_response["context"]:
-        file_info_list = []
-        duplicate_check_list = []
+    try:
+        # LLMからの回答を表示
+        st.markdown(llm_response["answer"])
         
-        # 参照元のドキュメント情報をリストに追加
-        for document in llm_response["context"]:
-            # ドキュメントのファイルパスを取得
-            file_path = document.metadata["source"]
+        # 表示用の会話ログに格納するためのデータを用意
+        content = {
+            "mode": ct.ANSWER_MODE_2,
+            "answer": llm_response["answer"]
+        }
+        
+        # 参照元の文書情報がある場合は追加
+        if "context" in llm_response and llm_response["context"]:
+            file_info_list = []
+            duplicate_check_list = []
             
-            # 重複を除去
-            if file_path in duplicate_check_list:
-                continue
+            # 参照元のドキュメント情報をリストに追加
+            for document in llm_response["context"]:
+                # ドキュメントのファイルパスを取得
+                file_path = document.metadata["source"]
                 
-            # 重複チェック用のリストにファイルパスを追加
-            duplicate_check_list.append(file_path)
-            
-            # ファイル情報をリストに追加
-            if "page" in document.metadata:
-                file_info = f"{file_path}（Page #{document.metadata['page']}）"
-            else:
+                # 重複を除去
+                if file_path in duplicate_check_list:
+                    continue
+                    
+                # 重複チェック用のリストにファイルパスを追加
+                duplicate_check_list.append(file_path)
+                
+                # ファイル情報を構築
                 file_info = file_path
+                if "page" in document.metadata:
+                    file_info = f"{file_path}（Page #{document.metadata['page']}）"
+                    
+                file_info_list.append(file_info)
+            
+            # 参照元情報がある場合のみ、表示用の会話ログに追加
+            if file_info_list:
+                message = "情報源"
+                content["message"] = message
+                content["file_info_list"] = file_info_list
                 
-            file_info_list.append(file_info)
+                # 区切り線
+                st.divider()
+                
+                # 「情報源」の見出し表示
+                st.markdown(f"##### {message}")
+                
+                # 参照元ドキュメントの一覧表示
+                for file_info in file_info_list:
+                    icon = utils.get_source_icon(file_info)
+                    st.info(file_info, icon=icon)
+                    
+        return content
         
-        # 参照元情報がある場合のみ、表示用の会話ログに追加
-        if file_info_list:
-            message = "情報源"
-            content["message"] = message
-            content["file_info_list"] = file_info_list
-            
-            # 区切り線
-            st.divider()
-            
-            # 「情報源」の見出し表示
-            st.markdown(f"##### {message}")
-            
-            # 参照元ドキュメントの一覧表示
-            for file_info in file_info_list:
-                icon = utils.get_source_icon(file_info)
-                st.info(file_info, icon=icon)
-    
-    return content
+    except Exception as e:
+        logger.error(f"問い合わせモード応答表示エラー: {e}")
+        error_message = "回答の表示中にエラーが発生しました。もう一度お試しください。"
+        st.error(error_message)
+        return {
+            "mode": ct.ANSWER_MODE_2,
+            "answer": error_message
+        }
 
 
-def display_debug_info(llm_response, chat_message=None):
+def display_safe_debug_info(llm_response):
     """
-    デバッグ情報を統一された順序で表示する
-    
+    開発者モードで安全なデバッグ情報を表示する
+
     Args:
         llm_response: LLMからの回答
-        chat_message: ユーザーの入力メッセージ（オプション）
     """
-    # 開発者モードがオンの場合のみ表示
-    if st.session_state.get("debug_mode", False):
-        with st.expander("🔍 DEBUG情報", expanded=True):
-            # 1. LLMレスポンス（生データ）
-            st.markdown("### LLMレスポンス（生データ）")
-            debug_json = {
-                "input": chat_message if chat_message else "不明",
-                "chat_history": st.session_state.get("chat_history", []),
-                "context": [d.page_content for d in llm_response.get("context", [])]
-                if "context" in llm_response else [],
-                "answer": llm_response.get("answer", "")
-            }
-            st.json(debug_json)
-            
-            # 2. ログファイル内容
-            st.markdown("### ログファイル内容")
-            try:
-                with open("logs/application.log", "r", encoding="utf-8") as f:
-                    log_content = f.read()
-                    # 最新の内容を表示（長すぎる場合は最後の部分のみ）
-                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-            except Exception as e:
-                st.warning(f"ログファイルの読み込みに失敗しました: {e}")
-            
-            # 3. 生成された回答
-            st.markdown("### 生成された回答")
-            if "answer" in llm_response:
-                st.markdown(llm_response["answer"])
-            else:
-                st.info("回答が見つかりません")
-            
-            # 4. 情報源
-            st.markdown("### 情報源")
-            if "context" in llm_response and llm_response["context"]:
-                file_info = set()
-                for doc in llm_response["context"]:
-                    source = doc.metadata.get("source", "不明")
-                    page = doc.metadata.get("page", None)
-                    info = f"{source}"
-                    if page:
-                        info += f"（Page #{page}）"
-                    file_info.add(info)
-                
-                for info in sorted(list(file_info)):
-                    icon = utils.get_source_icon(info)
-                    st.info(info, icon=icon)
-            else:
-                st.info("情報源なし")
+    with st.expander(ct.DEBUG_EXPANDER_TITLE, expanded=False):
+        st.markdown("### クエリ分析")
+        
+        # コンテキスト情報の表示
+        context_sources = []
+        if "context" in llm_response and llm_response["context"]:
+            for doc in llm_response["context"]:
+                source = doc.metadata.get("source", "不明")
+                page = doc.metadata.get("page", None)
+                info = {"source": source}
+                if page:
+                    info["page"] = page
+                context_sources.append(info)
+        
+        # 安全なデバッグ情報の表示
+        debug_info = {
+            "検索結果数": len(llm_response.get("context", [])),
+            "情報源": context_sources,
+            "応答タイプ": "該当資料なし" if llm_response.get("answer") == ct.NO_DOC_MATCH_ANSWER else "通常応答"
+        }
+        
+        st.json(debug_info)

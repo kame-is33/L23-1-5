@@ -5,11 +5,11 @@
 ############################################################
 # 1. ライブラリの読み込み
 ############################################################
-import pandas as pd 
-# .env」ファイルから環境変数を読み込むための関数
-from dotenv import load_dotenv
-# ログ出力を行うためのモジュール
+import os
 import logging
+from datetime import datetime
+# 「.env」ファイルから環境変数を読み込むための関数
+from dotenv import load_dotenv
 # streamlitアプリの表示を担当するモジュール
 import streamlit as st
 # （自作）画面表示以外の様々な関数が定義されているモジュール
@@ -28,7 +28,8 @@ import constants as ct
 ############################################################
 # ブラウザタブの表示文言を設定
 st.set_page_config(
-    page_title=ct.APP_NAME
+    page_title=ct.APP_NAME,
+    layout="wide"
 )
 
 # ログ出力を行うためのロガーの設定
@@ -44,14 +45,13 @@ try:
 except Exception as e:
     # エラーログの出力
     logger.error(f"{ct.INITIALIZE_ERROR_MESSAGE}\n{e}")
-    st.exception(e)
     # エラーメッセージの画面表示
     st.error(build_error_message(ct.INITIALIZE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
     # 後続の処理を中断
     st.stop()
 
 # アプリ起動時のログファイルへの出力
-if not "initialized" in st.session_state:
+if "initialized" not in st.session_state:
     st.session_state.initialized = True
     logger.info(ct.APP_BOOT_MESSAGE)
 
@@ -68,10 +68,10 @@ cn.display_sidebar()
 # 開発者モードのトグル（サイドバーの最後に追加）
 with st.sidebar:
     st.divider()
-    st.write("#### 開発者モード")
+    st.write("#### 開発者設定")
     # 開発者モードのトグル
     debug_mode = st.toggle(
-        "デバッグログを表示",
+        "デバッグ情報を表示",
         value=st.session_state.get("debug_mode", False),
         key="debug_toggle"
     )
@@ -91,7 +91,6 @@ try:
 except Exception as e:
     # エラーログの出力
     logger.error(f"{ct.CONVERSATION_LOG_ERROR_MESSAGE}\n{e}")
-    st.exception(e)
     # エラーメッセージの画面表示
     st.error(build_error_message(ct.CONVERSATION_LOG_ERROR_MESSAGE), icon=ct.ERROR_ICON)
     # 後続の処理を中断
@@ -108,20 +107,22 @@ chat_message = st.chat_input(ct.CHAT_INPUT_HELPER_TEXT)
 # 7. チャット送信時の処理
 ############################################################
 if chat_message:
-    content = ""  # 追加: contentを初期化
-
     # ==========================================
-    # 7-0. ファイル更新チェック　新設
+    # 7-0. ファイル更新チェック
     # ==========================================
-    # ファイル更新チェック
-    if "upload_time" in st.session_state and "uploaded_files" in st.session_state:
-        file_paths = [file.name for file in st.session_state.uploaded_files]
-        ref_time = st.session_state.upload_time
-        files_updated = check_files_for_updates(file_paths, ref_time)
-    else:
-        files_updated = []
-    if files_updated:
-        st.info(ct.FILE_UPDATE_MESSAGE, icon=ct.FILE_UPDATE_ICON)
+    try:
+        # ファイル更新チェック
+        if "upload_time" in st.session_state and "uploaded_files" in st.session_state:
+            file_paths = [file.name for file in st.session_state.uploaded_files]
+            ref_time = st.session_state.upload_time
+            files_updated = check_files_for_updates(file_paths, ref_time)
+            
+            # 更新があった場合の処理
+            if files_updated:
+                st.info(ct.FILE_UPDATE_MESSAGE, icon=ct.FILE_UPDATE_ICON)
+                logger.info(f"ファイル更新を検知: {', '.join(files_updated)}")
+    except Exception as e:
+        logger.warning(f"ファイル更新チェックエラー: {e}")
 
     # ==========================================
     # 7-1. ユーザーメッセージの表示
@@ -142,27 +143,31 @@ if chat_message:
         with st.chat_message("assistant"):
             st.markdown("回答生成中...")
     
-    # 「st.spinner」でグルグル回っている間、表示の不具合が発生しないよう空のエリアを表示
-    res_box = st.empty()
     # LLMによる回答生成（回答生成が完了するまでグルグル回す）
     with st.spinner(ct.SPINNER_TEXT):
         try:
             # 画面読み込み時に作成したRetrieverを使い、Chainを実行
             llm_response = utils.get_llm_response(chat_message)
-            if "answer" not in llm_response:  # 追加: エラーチェック
-                raise ValueError("LLMの回答が取得できませんでした。")
+            
+            # レスポンスの検証
+            if not utils.validate_llm_response(llm_response):
+                raise ValueError("無効なLLMレスポンスを受信しました")
+                
         except Exception as e:
             # エラーログの出力
             logger.error(f"{ct.GET_LLM_RESPONSE_ERROR_MESSAGE}\n{e}")
-            st.exception(e)
             # エラーメッセージの画面表示
             st.error(build_error_message(ct.GET_LLM_RESPONSE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+            # 表示用の会話ログにユーザーメッセージを追加
+            st.session_state.messages.append({"role": "user", "content": chat_message})
             # 後続の処理を中断
             st.stop()
 
     # ==========================================
     # 7-3. LLMからの回答表示
     # ==========================================
+    content = None  # 表示用のコンテンツを格納する変数
+    
     with answer_box.container():
         with st.chat_message("assistant"):
             try:
@@ -183,39 +188,28 @@ if chat_message:
                 # AIメッセージのログ出力
                 logger.info({"message": content, "application_mode": st.session_state.mode})
 
-                # 追加: 空の回答に対するフォールバックメッセージ
-                if not content:
-                    content = "申し訳ありませんが、回答を生成できませんでした。"
-
             except Exception as e:
                 # エラーログの出力
                 logger.error(f"{ct.DISP_ANSWER_ERROR_MESSAGE}\n{e}")
-                st.exception(e)
                 # エラーメッセージの画面表示
                 st.error(build_error_message(ct.DISP_ANSWER_ERROR_MESSAGE), icon=ct.ERROR_ICON)
-                # 後続の処理を中断
-                st.stop()
-
-    # ==========================================
-    # DEBUGログの表示（開発者モードON時のみ）
-    # ==========================================
-    if st.session_state.get("debug_mode", False):
-        with st.expander("DEBUGログ", expanded=True):
-            st.markdown("### LLMレスポンス（生データ）")
-            st.json(llm_response)
-            
-            st.markdown("### ログファイル内容")
-            try:
-                with open("logs/application.log", "r", encoding="utf-8") as f:
-                    log_content = f.read()
-                    st.code(log_content[-5000:] if len(log_content) > 5000 else log_content, language="text")
-            except FileNotFoundError:
-                st.warning("ログファイルが見つかりませんでした。")
+                # 最低限の内容を持つコンテンツの作成
+                error_message = "回答の表示中にエラーが発生しました。もう一度お試しください。"
+                content = {
+                    "mode": st.session_state.mode,
+                    "answer": error_message
+                }
 
     # ==========================================
     # 7-4. 会話ログへの追加
     # ==========================================
-    # 表示用の会話ログにユーザーメッセージを追加
-    st.session_state.messages.append({"role": "user", "content": chat_message})
-    # 表示用の会話ログにAIメッセージを追加
-    st.session_state.messages.append({"role": "assistant", "content": content})
+    # コンテンツが生成されている場合のみ追加処理を実行
+    if content:
+        # 表示用の会話ログにユーザーメッセージを追加
+        st.session_state.messages.append({"role": "user", "content": chat_message})
+        # 表示用の会話ログにAIメッセージを追加
+        st.session_state.messages.append({"role": "assistant", "content": content})
+    else:
+        # コンテンツが生成されていない場合のエラー処理
+        logger.error("コンテンツが生成されませんでした")
+        st.error("応答の処理中に問題が発生しました。もう一度お試しください。", icon=ct.ERROR_ICON)

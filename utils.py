@@ -1,6 +1,14 @@
-import pandas as pd  # この行を追加して pandas をインポート
+"""
+このファイルは、画面表示以外の様々な関数定義のファイルです。
+"""
+
+############################################################
+# ライブラリの読み込み
+############################################################
 import os
 import logging
+import pandas as pd
+from datetime import datetime
 from dotenv import load_dotenv
 import streamlit as st
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -10,82 +18,170 @@ from langchain.chains import create_history_aware_retriever, create_retrieval_ch
 from langchain.chains.combine_documents import create_stuff_documents_chain
 import constants as ct
 
-import os
-from datetime import datetime
+
+############################################################
+# 設定関連
+############################################################
+# 「.env」ファイルで定義した環境変数の読み込み
+load_dotenv()
+
+
+############################################################
+# 関数定義
+############################################################
+
+def get_source_icon(source):
+    """
+    メッセージと一緒に表示するアイコンの種類を取得
+
+    Args:
+        source: 参照元のありか
+
+    Returns:
+        メッセージと一緒に表示するアイコンの種類
+    """
+    # 参照元がWebページの場合とファイルの場合で、取得するアイコンの種類を変える
+    if isinstance(source, str) and source.startswith("http"):
+        icon = ct.LINK_SOURCE_ICON
+    else:
+        icon = ct.DOC_SOURCE_ICON
+    
+    return icon
+
+
+def build_error_message(message):
+    """
+    エラーメッセージと管理者問い合わせテンプレートの連結
+
+    Args:
+        message: 画面上に表示するエラーメッセージ
+
+    Returns:
+        エラーメッセージと管理者問い合わせテンプレートの連結テキスト
+    """
+    if not message:
+        return ct.COMMON_ERROR_MESSAGE
+        
+    if isinstance(message, list):
+        error_text = "\n".join(message)
+    else:
+        error_text = str(message)
+        
+    return f"{error_text}\n{ct.COMMON_ERROR_MESSAGE}"
+
 
 def check_files_for_updates(file_paths, reference_time):
     """
-    指定されたファイル群が reference_time より後に更新されたかどうかをチェックします。
-    :param file_paths: チェックするファイルパスのリスト
-    :param reference_time: datetime オブジェクト
-    :return: 更新されたファイル名のリスト
+    指定されたファイル群が reference_time より後に更新されたかどうかをチェックします
+
+    Args:
+        file_paths: チェックするファイルパスのリスト
+        reference_time: 基準となる日時（datetime オブジェクト）
+
+    Returns:
+        更新されたファイル名のリスト
     """
+    logger = logging.getLogger(ct.LOGGER_NAME)
+    
+    if not file_paths or not reference_time:
+        return []
+        
     updated_files = []
     for path in file_paths:
         try:
+            if not os.path.exists(path):
+                continue
+                
             mod_time = datetime.fromtimestamp(os.path.getmtime(path))
             if mod_time > reference_time:
                 updated_files.append(path)
-        except FileNotFoundError:
-            continue  # 存在しないファイルはスキップ
+                logger.info(f"ファイル更新を検知: {path}")
+        except (PermissionError, OSError) as e:
+            logger.warning(f"ファイル更新チェックエラー: {path} - {e}")
+    
     return updated_files
 
-def build_error_message(errors):
+
+def detect_special_query_type(query):
     """
-    エラーメッセージのリストまたは文字列から、フォーマット済み文字列を生成します。
+    クエリが特殊処理を必要とする種類かどうかを判定する
+
+    Args:
+        query: ユーザー入力クエリ
+
+    Returns:
+        特殊クエリタイプ（"employee", "finance", "project"など）、該当しない場合はNone
     """
-    if not errors:
-        return "エラーは発生していません。"
-
-    # 単一の文字列が渡された場合、リストに変換する
-    if isinstance(errors, str):
-        errors = [errors]
-
-    message = "以下のエラーが発生しました：\n"
-    for i, error in enumerate(errors, 1):
-        message += f"{i}. {error}\n"
-    return message.strip()
-
-def analyze_csv_structure(csv_path):
-    """CSVファイルの構造を分析し、重要なカラム名を特定する関数"""
-    try:
-        import pandas as pd
-        if os.path.exists(csv_path):
-            # CSVファイル読み込み・分析処理（前回提案したコード）
-            ...
-
-    except Exception as e:
-        logging.getLogger(ct.LOGGER_NAME).error(f"CSV構造分析エラー: {e}")
-        return None, None
-
-def load_csv_to_vectorstore(csv_path, vectorstore):
-    """CSVファイルをベクターストアに登録する関数"""
-    try:
-        df = pd.read_csv(csv_path)
-        documents = []
+    if not query:
+        return None
         
-        for index, row in df.iterrows():
-            # 各行を構造化テキストに変換
-            content = "\n".join([f"{col}: {row[col]}" for col in df.columns])
+    for query_type, keywords in ct.SPECIAL_QUERY_PATTERNS.items():
+        if any(keyword in query for keyword in keywords):
+            return query_type
+    
+    return None
+
+
+def process_employee_query(query):
+    """
+    従業員情報に関するクエリを特別に処理する
+
+    Args:
+        query: ユーザー入力クエリ
+
+    Returns:
+        処理結果の辞書（成功時: {"success": True, "data": データ}, 失敗時: {"success": False, "error": エラー}）
+    """
+    logger = logging.getLogger(ct.LOGGER_NAME)
+    
+    try:
+        csv_path = ct.EMPLOYEE_DATA_PATH
+        
+        if not os.path.exists(csv_path):
+            logger.warning(f"社員情報ファイルが見つかりません: {csv_path}")
+            return {"success": False, "error": "社員情報ファイルが見つかりません"}
             
-            # ドキュメントとして登録
-            from langchain_core.documents import Document
-            doc = Document(
-                page_content=content,
-                metadata={
-                    "source": csv_path,
-                    "row": index,
-                    "type": "社員情報"
-                }
-            )
-            documents.append(doc)
+        # CSVデータの読み込み
+        employee_df = pd.read_csv(csv_path)
         
-        # ベクターストアに追加
-        vectorstore.add_documents(documents)
-        logging.getLogger(ct.LOGGER_NAME).info(f"CSVから{len(documents)}件のドキュメントを登録しました: {csv_path}")
+        # 部署カラムを特定
+        dept_column = None
+        for col in employee_df.columns:
+            if "部署" in col or "所属" in col:
+                dept_column = col
+                break
+        
+        return {
+            "success": True,
+            "data": employee_df,
+            "dept_column": dept_column,
+            "source": csv_path
+        }
         
     except Exception as e:
-        logging.getLogger(ct.LOGGER_NAME).error(f"CSVのベクターストア登録エラー: {e}")
+        logger.error(f"社員情報処理エラー: {e}")
+        return {"success": False, "error": f"社員情報の処理中にエラーが発生しました: {e}"}
+
+
+def validate_llm_response(llm_response):
+    """
+    LLMからのレスポンスが有効かどうかを検証する
+
+    Args:
+        llm_response: LLMからのレスポンス
+
+    Returns:
+        検証結果（True: 有効, False: 無効）
+    """
+    if not llm_response or not isinstance(llm_response, dict):
+        return False
+        
+    # 必須キーの確認
+    if "answer" not in llm_response:
+        return False
+        
+    return True
+
 
 def get_llm_response(chat_message):
     """
@@ -97,44 +193,37 @@ def get_llm_response(chat_message):
     Returns:
         LLMからの回答
     """
-    if not st.session_state.get("retriever"):
-        st.error("❗ retriever が初期化されていません。initialize.py を確認してください。")
-        return {"answer": "内部エラー：retriever未初期化"}
-
-    # LLMのオブジェクトを用意
-    llm = ChatOpenAI(model_name=ct.MODEL, temperature=ct.TEMPERATURE)
-
-    # 社員情報関連のキーワードを検出
-    employee_keywords = ["人事", "従業員", "社員", "部署", "スキル"]
-    is_employee_query = any(keyword in chat_message for keyword in employee_keywords)
+    logger = logging.getLogger(ct.LOGGER_NAME)
+    logger.info(f"LLM回答取得開始: {chat_message}")
     
-    # 社員情報の追加処理
-    if is_employee_query and st.session_state.mode == ct.ANSWER_MODE_2:
-        try:
-            csv_path = "./data/社員について/社員名簿.csv"
-            if os.path.exists(csv_path):
-                # 社員データの読み込み
-                employee_df = pd.read_csv(csv_path)
-                
-                # 人事部のフィルタリング
-                dept_column = None
-                for col in employee_df.columns:
-                    if "部署" in col or "所属" in col:
-                        dept_column = col
-                        break
-                
-                # 強制的に回答を生成
-                from langchain_core.documents import Document
-                dummy_doc = Document(
-                    page_content="社員情報があります",
-                    metadata={"source": "./data/社員について/社員名簿.csv"}
-                )
-                
-                # チャットメッセージをモディファイ
-                chat_message = f"社員名簿を参照して次の質問に答えてください: {chat_message}"
-        except Exception as e:
-            logging.getLogger(ct.LOGGER_NAME).warning(f"社員情報の読み込みに失敗しました: {e}")
-
+    # Retrieverの初期化チェック
+    if "retriever" not in st.session_state:
+        error_message = ct.RETRIEVER_NOT_INITIALIZED_ERROR
+        logger.error(error_message)
+        return {"answer": error_message, "context": []}
+    
+    # 特殊クエリのチェック
+    query_type = detect_special_query_type(chat_message)
+    modified_query = chat_message
+    
+    # 特殊クエリの処理
+    if query_type == "employee" and st.session_state.mode == ct.ANSWER_MODE_2:
+        logger.info(f"社員情報に関するクエリを検出: {chat_message}")
+        result = process_employee_query(chat_message)
+        
+        if result["success"]:
+            # 社員情報に関する特別なプロンプト追加
+            modified_query = f"社員名簿を参照して次の質問に答えてください: {chat_message}"
+            logger.info(f"クエリを修正: {modified_query}")
+    
+    # LLMのオブジェクトを用意
+    try:
+        llm = ChatOpenAI(model_name=ct.MODEL, temperature=ct.TEMPERATURE)
+    except Exception as e:
+        error_message = f"LLMオブジェクトの初期化に失敗しました: {e}"
+        logger.error(error_message)
+        return {"answer": error_message, "context": []}
+    
     # 会話履歴なしでもLLMに理解してもらえる、独立した入力テキストを取得するためのプロンプトテンプレートを作成
     question_generator_template = ct.SYSTEM_PROMPT_CREATE_INDEPENDENT_TEXT
     question_generator_prompt = ChatPromptTemplate.from_messages(
@@ -152,71 +241,43 @@ def get_llm_response(chat_message):
     else:
         # モードが「社内問い合わせ」の場合のプロンプト
         question_answer_template = ct.SYSTEM_PROMPT_INQUIRY
-
+        
     # LLMから回答を取得する用のプロンプトテンプレートを作成
     question_answer_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", question_answer_template),
             MessagesPlaceholder("chat_history"),
-            ("human", "{user_input}")
+            ("human", "{input}")
         ]
     )
 
-    # 会話履歴なしでもLLMに理解してもらえる、独立した入力テキストを取得するためのRetrieverを作成
-    history_aware_retriever = create_history_aware_retriever(
-        llm, st.session_state.retriever, question_generator_prompt
-    )
-
-    logging.getLogger(ct.LOGGER_NAME).info(f"[DEBUG] Retriever入力値: input={chat_message}")
-    logging.getLogger(ct.LOGGER_NAME).info(f"[DEBUG] Retrieverオブジェクト: {st.session_state.retriever}")
-
-    # Retrieverを使って文脈情報を取得
-    retrieved_docs = history_aware_retriever.invoke({
-        "chat_history": st.session_state.chat_history,
-        "input": chat_message
-    })
-
-    # LLMから回答を取得する用のChainを作成
-    question_answer_chain = create_stuff_documents_chain(llm, question_answer_prompt)
-    # 通常のretrieverを使用
-    chain = create_retrieval_chain(st.session_state.retriever, question_answer_chain)
-
-    # LLMへのリクエストとレスポンス取得
-    llm_response = chain.invoke({
-        "user_input": chat_message,
-        "chat_history": st.session_state.chat_history,
-        "context": retrieved_docs
-    })
-
-    # 社員情報関連の質問で「情報が見つからなかった」場合は直接問い合わせ
-    if is_employee_query and llm_response["answer"] == ct.INQUIRY_NO_MATCH_ANSWER:
-        try:
-            csv_path = "./data/社員について/社員名簿.csv"
-            # CSVの構造を分析（前回提案したフィルタリングコード）
-            ...
-
-        except Exception as e:
-            logging.getLogger(ct.LOGGER_NAME).warning(f"社員情報による直接回答の生成に失敗しました: {e}")
-
-    # LLMレスポンスを会話履歴に追加
-    st.session_state.chat_history.extend([HumanMessage(content=chat_message), llm_response["answer"]])
-
-    return llm_response
-
-def get_source_icon(filename: str) -> str:
-    """
-    ファイル拡張子に応じた Material アイコンを返す。
-    現時点ではすべて同一のアイコン（:material/description:）を返すが、
-    拡張子に応じて異なるアイコンを割り当てられるよう構造を維持している。
-📌 解説
-	•	:material/picture_as_pdf: → PDF アイコン
-	•	:material/article: → Word ドキュメントに近いアイコン
-	•	:material/grid_on: → 表形式データ（CSV/Excel）
-	•	:material/notes: → テキストファイル
-	•	:material/insert_drive_file: → その他の一般的ファイル
-    """
-    # 今後の拡張に備えた分岐構造（現在は全て同じアイコン）
-    if filename.endswith((".pdf", ".docx", ".doc", ".xlsx", ".csv", ".txt")):
-        return ":material/description:"
-    else:
-        return ":material/description:"
+    try:
+        # 会話履歴なしでもLLMに理解してもらえる、独立した入力テキストを取得するためのRetrieverを作成
+        history_aware_retriever = create_history_aware_retriever(
+            llm, st.session_state.retriever, question_generator_prompt
+        )
+        
+        # LLMから回答を取得する用のChainを作成
+        question_answer_chain = create_stuff_documents_chain(llm, question_answer_prompt)
+        # 「RAG x 会話履歴の記憶機能」を実現するためのChainを作成
+        chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+        
+        # LLMへのリクエストとレスポンス取得
+        llm_response = chain.invoke({"input": modified_query, "chat_history": st.session_state.chat_history})
+        
+        # レスポンスの検証
+        if not validate_llm_response(llm_response):
+            error_message = ct.INVALID_RESPONSE_ERROR
+            logger.error(f"無効なLLMレスポンス: {llm_response}")
+            return {"answer": error_message, "context": []}
+        
+        # LLMレスポンスを会話履歴に追加
+        st.session_state.chat_history.extend([HumanMessage(content=chat_message), llm_response["answer"]])
+        
+        logger.info(f"LLM回答取得完了: {llm_response['answer'][:100]}...")
+        return llm_response
+        
+    except Exception as e:
+        error_message = f"回答生成中にエラーが発生しました: {e}"
+        logger.error(error_message)
+        return {"answer": error_message, "context": []}
