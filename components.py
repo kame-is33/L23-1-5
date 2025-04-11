@@ -335,4 +335,3 @@ def display_contact_llm_response(llm_response):
             "mode": ct.ANSWER_MODE_2,
             "answer": error_message
         }
-``` 
