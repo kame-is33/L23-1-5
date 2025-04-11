@@ -15,9 +15,10 @@ from dotenv import load_dotenv
 import streamlit as st
 from docx import Document
 from langchain_community.document_loaders import WebBaseLoader
-from langchain.text_splitter import CharacterTextSplitter, CSVTextSplitter
+from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_core.documents import Document as LangchainDoc
 import constants as ct
 
 
@@ -135,10 +136,11 @@ def initialize_retriever():
             separator="\n"
         )
         
-        # CSV専用のチャンク分割用オブジェクトを作成
-        csv_splitter = CSVTextSplitter(
+        # CSV専用のチャンク分割用オブジェクトを作成（RecursiveCharacterTextSplitter使用）
+        csv_splitter = RecursiveCharacterTextSplitter(
             chunk_size=ct.CSV_CHUNK_SIZE,
-            chunk_overlap=ct.CSV_CHUNK_OVERLAP
+            chunk_overlap=ct.CSV_CHUNK_OVERLAP,
+            separators=[",", "\n", " "]  # CSVファイル向けの区切り文字
         )
         
         # ドキュメントをCSVとそれ以外に分類
@@ -293,7 +295,6 @@ def file_load(path, docs_all):
         elif file_extension == ".docx":
             # .docxファイルの場合、専用の処理
             text = extract_docx_text(path)
-            from langchain.schema import Document as LangchainDoc
             doc = LangchainDoc(page_content=text, metadata={"source": path})
             docs_all.append(doc)
             logger.info(f"DOCXファイル読み込み: {path}")
