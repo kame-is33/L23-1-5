@@ -115,20 +115,24 @@ def display_conversation_log():
                 
                 # 「社内問い合わせ」の場合の表示処理
                 else:
-                    # LLMからの回答を表示
-                    st.markdown(message["content"]["answer"])
+                    # CSV検索結果の場合の特別処理
+                    if "is_csv_result" in message["content"] and message["content"]["is_csv_result"]:
+                        st.markdown(message["content"]["answer"])
+                    else:
+                        # LLMからの回答を表示
+                        st.markdown(message["content"]["answer"])
 
-                    # 参照元のありかを一覧表示
-                    if "file_info_list" in message["content"]:
-                        # 区切り線の表示
-                        st.divider()
-                        # 「情報源」の文字を太字で表示
-                        st.markdown(f"##### {message['content']['message']}")
-                        # ドキュメントのありかを一覧表示
-                        for file_info in message["content"]["file_info_list"]:
-                            # 参照元のありかに応じて、適したアイコンを取得
-                            icon = utils.get_source_icon(file_info)
-                            st.info(file_info, icon=icon)
+                        # 参照元のありかを一覧表示
+                        if "file_info_list" in message["content"]:
+                            # 区切り線の表示
+                            st.divider()
+                            # 「情報源」の文字を太字で表示
+                            st.markdown(f"##### {message['content']['message']}")
+                            # ドキュメントのありかを一覧表示
+                            for file_info in message["content"]["file_info_list"]:
+                                # 参照元のありかに応じて、適したアイコンを取得
+                                icon = utils.get_source_icon(file_info)
+                                st.info(file_info, icon=icon)
 
 
 def display_search_llm_response(llm_response):
@@ -275,7 +279,17 @@ def display_contact_llm_response(llm_response):
     logger = logging.getLogger(ct.LOGGER_NAME)
     
     try:
-        # LLMからの回答を表示
+        # CSV検索結果の場合の特別処理
+        if "is_csv_result" in llm_response and llm_response["is_csv_result"]:
+            # CSVフォーマット済みの結果を表示
+            st.markdown(llm_response["answer"])
+            return {
+                "mode": ct.ANSWER_MODE_2,
+                "answer": llm_response["answer"],
+                "is_csv_result": True
+            }
+        
+        # 通常の回答処理
         st.markdown(llm_response["answer"])
         
         # 表示用の会話ログに格納するためのデータを用意

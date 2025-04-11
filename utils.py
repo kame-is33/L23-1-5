@@ -183,6 +183,98 @@ def validate_llm_response(llm_response):
     return True
 
 
+def process_csv_header_query(query):
+    """
+    CSVファイルのヘッダーに基づいて検索を行う
+
+    Args:
+        query: ユーザー入力クエリ
+
+    Returns:
+        処理結果の辞書（成功時: {"success": True, "documents": 見つかったドキュメントのリスト}, 失敗時: {"success": False, "error": エラー}）
+    """
+    logger = logging.getLogger(ct.LOGGER_NAME)
+    
+    try:
+        # CSVファイルを探す
+        csv_files = []
+        for root, _, files in os.walk(ct.RAG_TOP_FOLDER_PATH):
+            for file in files:
+                if file.lower().endswith('.csv'):
+                    csv_files.append(os.path.join(root, file))
+        
+        if not csv_files:
+            return {"success": False, "error": "CSVファイルが見つかりませんでした"}
+        
+        # 結果を格納するリスト
+        found_documents = []
+        
+        # 各CSVファイルを処理
+        for csv_file in csv_files:
+            try:
+                # CSVファイルを読み込む
+                df = pd.read_csv(csv_file)
+                
+                # ヘッダー項目を取得
+                headers = df.columns.tolist()
+                
+                # ヘッダー項目がクエリに含まれているか確認
+                for header in headers:
+                    if header.lower() in query.lower() or query.lower() in header.lower():
+                        # 該当するヘッダーに関連する行を全て取得
+                        rows = df.to_dict(orient='records')
+                        
+                        # CSVファイル名と見つかったヘッダーを結果に追加
+                        found_documents.append({
+                            "file_path": csv_file,
+                            "header": header,
+                            "rows": rows
+                        })
+                        logger.info(f"CSVファイル '{csv_file}' のヘッダー '{header}' が条件に一致しました")
+                        break
+            except Exception as e:
+                logger.warning(f"CSVファイル '{csv_file}' の処理中にエラーが発生しました: {e}")
+        
+        if not found_documents:
+            return {"success": False, "error": f"クエリ '{query}' に一致するCSVヘッダーが見つかりませんでした"}
+        
+        return {"success": True, "documents": found_documents}
+    
+    except Exception as e:
+        logger.error(f"CSVヘッダー検索処理エラー: {e}")
+        return {"success": False, "error": f"CSVヘッダー検索中にエラーが発生しました: {e}"}
+
+
+def format_csv_results(csv_results):
+    """
+    CSVの検索結果をフォーマットする
+
+    Args:
+        csv_results: process_csv_header_queryからの結果
+
+    Returns:
+        フォーマットされたテキスト
+    """
+    if not csv_results["success"]:
+        return csv_results["error"]
+    
+    formatted_text = "## 検索結果\n\n"
+    
+    for doc in csv_results["documents"]:
+        file_name = os.path.basename(doc["file_path"])
+        formatted_text += f"### ファイル: {file_name}\n"
+        formatted_text += f"検索されたヘッダー: **{doc['header']}**\n\n"
+        
+        # データフレームに変換して表を作成
+        df = pd.DataFrame(doc["rows"])
+        
+        # マークダウンテーブルに変換
+        markdown_table = df.to_markdown()
+        formatted_text += markdown_table + "\n\n"
+    
+    return formatted_text
+
+
 def get_llm_response(chat_message):
     """
     LLMからの回答取得
@@ -201,6 +293,15 @@ def get_llm_response(chat_message):
         error_message = ct.RETRIEVER_NOT_INITIALIZED_ERROR
         logger.error(error_message)
         return {"answer": error_message, "context": []}
+    
+    # CSV関連のクエリかどうかをチェック
+    if "csv" in chat_message.lower() and ("ヘッダー" in chat_message or "項目" in chat_message):
+        logger.info(f"CSVヘッダーに関するクエリを検出: {chat_message}")
+        result = process_csv_header_query(chat_message)
+        
+        if result["success"]:
+            formatted_result = format_csv_results(result)
+            return {"answer": formatted_result, "context": [], "is_csv_result": True}
     
     # 特殊クエリのチェック
     query_type = detect_special_query_type(chat_message)

@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 import streamlit as st
 from docx import Document
 from langchain_community.document_loaders import WebBaseLoader
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import CharacterTextSplitter, CSVTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import constants as ct
@@ -128,17 +128,44 @@ def initialize_retriever():
         logger.info("埋め込みモデルの初期化")
         embeddings = OpenAIEmbeddings()
         
-        # チャンク分割用のオブジェクトを作成
+        # チャンク分割用のオブジェクトを作成（通常のテキスト用）
         text_splitter = CharacterTextSplitter(
             chunk_size=ct.CHUNK_SIZE,
             chunk_overlap=ct.CHUNK_OVERLAP,
             separator="\n"
         )
         
-        # チャンク分割を実施
+        # CSV専用のチャンク分割用オブジェクトを作成
+        csv_splitter = CSVTextSplitter(
+            chunk_size=ct.CSV_CHUNK_SIZE,
+            chunk_overlap=ct.CSV_CHUNK_OVERLAP
+        )
+        
+        # ドキュメントをCSVとそれ以外に分類
+        csv_docs = []
+        non_csv_docs = []
+        
+        for doc in docs_all:
+            if doc.metadata and doc.metadata.get("source", "").lower().endswith(".csv"):
+                csv_docs.append(doc)
+            else:
+                non_csv_docs.append(doc)
+        
+        # チャンク分割を実施（CSVとそれ以外で異なる処理）
         logger.info("チャンク分割を実行")
-        splitted_docs = text_splitter.split_documents(docs_all)
-        logger.info(f"{len(splitted_docs)}件のチャンクに分割されました")
+        splitted_docs = []
+        
+        if non_csv_docs:
+            non_csv_splitted = text_splitter.split_documents(non_csv_docs)
+            splitted_docs.extend(non_csv_splitted)
+            logger.info(f"CSVではないドキュメント: {len(non_csv_splitted)}件のチャンクに分割されました")
+            
+        if csv_docs:
+            csv_splitted = csv_splitter.split_documents(csv_docs)
+            splitted_docs.extend(csv_splitted)
+            logger.info(f"CSVドキュメント: {len(csv_splitted)}件のチャンクに分割されました")
+        
+        logger.info(f"合計: {len(splitted_docs)}件のチャンクに分割されました")
         
         # ベクターストアの作成
         logger.info("ベクターストアの作成")

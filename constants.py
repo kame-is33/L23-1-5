@@ -81,6 +81,8 @@ WEB_URL_LOAD_TARGETS = [
 RETRIEVER_DOCUMENT_COUNT = 5     # 検索結果として取得するドキュメント数
 CHUNK_SIZE = 500                 # チャンク分割サイズ
 CHUNK_OVERLAP = 50               # チャンク分割時のオーバーラップサイズ
+CSV_CHUNK_SIZE = 1               # CSVファイル用のチャンク分割サイズ（行単位）
+CSV_CHUNK_OVERLAP = 0            # CSVファイル用のチャンク分割時のオーバーラップサイズ
 
 
 # ==========================================
