@@ -65,18 +65,9 @@ cn.display_app_title()
 # サイドバー表示
 cn.display_sidebar()
 
-# 開発者モードのトグル（サイドバーの最後に追加）
-with st.sidebar:
-    st.divider()
-    st.write("#### 開発者設定")
-    # 開発者モードのトグル
-    debug_mode = st.toggle(
-        "デバッグ情報を表示",
-        value=st.session_state.get("debug_mode", False),
-        key="debug_toggle"
-    )
-    # トグルの状態をセッション変数に保存
-    st.session_state.debug_mode = debug_mode
+# デバッグモードの初期化（セッション変数に存在しない場合はFalseに設定）
+if "debug_mode" not in st.session_state:
+    st.session_state.debug_mode = False
 
 # AIメッセージの初期表示
 cn.display_initial_ai_message()
@@ -123,6 +114,20 @@ if chat_message:
                 logger.info(f"ファイル更新を検知: {', '.join(files_updated)}")
     except Exception as e:
         logger.warning(f"ファイル更新チェックエラー: {e}")
+
+    # ==========================================
+    # 7-0.5. 隠しコマンドの処理
+    # ==========================================
+    # デバッグモード切り替えの隠しコマンド
+    if chat_message.strip() == "/debug":
+        st.session_state.debug_mode = not st.session_state.debug_mode
+        debug_status = "有効" if st.session_state.debug_mode else "無効"
+        with st.chat_message("assistant"):
+            st.markdown(f"デバッグモードを{debug_status}にしました。")
+        # セッションに会話を追加
+        st.session_state.messages.append({"role": "user", "content": chat_message})
+        st.session_state.messages.append({"role": "assistant", "content": {"mode": st.session_state.mode, "answer": f"デバッグモードを{debug_status}にしました。"}})
+        st.stop()  # 以降の処理を中断
 
     # ==========================================
     # 7-1. ユーザーメッセージの表示

@@ -43,9 +43,6 @@ SIDEBAR_EMPLOYEE_TITLE = "**【社員情報を含む質問】**"
 SIDEBAR_EMPLOYEE_DESCRIPTION = "人事・従業員・部署に関する質問をすると、社員名簿のデータを参照して回答します。"
 SIDEBAR_EMPLOYEE_EXAMPLE = "人事部に所属する全従業員のスキルセットを一覧にしてください"
 
-SIDEBAR_DEVELOPER_MODE = "開発者モード"
-DEBUG_EXPANDER_TITLE = "システム情報"
-
 
 # ==========================================
 # ログ出力系

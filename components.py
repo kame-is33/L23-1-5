@@ -143,10 +143,6 @@ def display_search_llm_response(llm_response):
     """
     logger = logging.getLogger(ct.LOGGER_NAME)
     
-    # 開発者モードの場合、デバッグ情報を表示
-    if st.session_state.get("debug_mode", False):
-        display_safe_debug_info(llm_response)
-    
     # LLMからのレスポンスに参照元情報が入っており、かつ「該当資料なし」が回答として返された場合
     if "context" in llm_response and llm_response["context"] and llm_response["answer"] != ct.NO_DOC_MATCH_ANSWER:
         try:
@@ -278,10 +274,6 @@ def display_contact_llm_response(llm_response):
     """
     logger = logging.getLogger(ct.LOGGER_NAME)
     
-    # 開発者モードの場合、デバッグ情報を表示
-    if st.session_state.get("debug_mode", False):
-        display_safe_debug_info(llm_response)
-    
     try:
         # LLMからの回答を表示
         st.markdown(llm_response["answer"])
@@ -343,34 +335,4 @@ def display_contact_llm_response(llm_response):
             "mode": ct.ANSWER_MODE_2,
             "answer": error_message
         }
-
-
-def display_safe_debug_info(llm_response):
-    """
-    開発者モードで安全なデバッグ情報を表示する
-
-    Args:
-        llm_response: LLMからの回答
-    """
-    with st.expander(ct.DEBUG_EXPANDER_TITLE, expanded=False):
-        st.markdown("### クエリ分析")
-        
-        # コンテキスト情報の表示
-        context_sources = []
-        if "context" in llm_response and llm_response["context"]:
-            for doc in llm_response["context"]:
-                source = doc.metadata.get("source", "不明")
-                page = doc.metadata.get("page", None)
-                info = {"source": source}
-                if page:
-                    info["page"] = page
-                context_sources.append(info)
-        
-        # 安全なデバッグ情報の表示
-        debug_info = {
-            "検索結果数": len(llm_response.get("context", [])),
-            "情報源": context_sources,
-            "応答タイプ": "該当資料なし" if llm_response.get("answer") == ct.NO_DOC_MATCH_ANSWER else "通常応答"
-        }
-        
-        st.json(debug_info)
+``` 
